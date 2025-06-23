@@ -22,6 +22,11 @@ class EnvWorker(object):
             init_response = self.env.create_instance(env_type=self.env_type,
                                                     task_id=self.task_id,
                                                     instance_id=self.instance_id)
+        except Exception as e:
+            print("Error in EnvWorker - create_instance", e)
+            return Trajectory(data_id=data_id, rollout_id=rollout_id, steps=[], query="")
+        
+        try:
             state_message: dict = init_response["state"]
             trajectory: Trajectory = Trajectory(data_id=data_id,
                                                 rollout_id=rollout_id,
@@ -29,14 +34,11 @@ class EnvWorker(object):
                                                 query=state_message["content"])
             trajectory: Trajectory = agent_flow.execute(trajectory=trajectory, env=self.env, instance_id=self.instance_id,
                                                         **kwargs)
-            self.env.release_instance(self.instance_id)
-        
         except Exception as e:
-            print("Error in EnvWorker: ", e)
+            print("Error in EnvWorker - agent_flow", e)
             trajectory = Trajectory(data_id=data_id, rollout_id=rollout_id, steps=[], query="")
-            try:
-                self.env.release_instance(self.instance_id)
-            except Exception as e:
-                print(f"Env instance has been released: {self.instance_id}; Error: {e}")
+
+        finally:
+            self.env.release_instance(self.instance_id)
 
         return trajectory

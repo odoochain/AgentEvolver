@@ -21,7 +21,7 @@ actor_rollout_ref:
     name: vllm
     mode: async
     multi_turn:
-      enabled: True
+      enable: True
       format: llama3_json
       max_steps: 30
     custom_dataflow_cls:
