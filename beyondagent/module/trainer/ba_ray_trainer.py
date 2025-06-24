@@ -30,7 +30,6 @@ import ray
 import torch
 from tqdm import tqdm
 from verl import DataProto
-from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 from verl.trainer.ppo.core_algos import agg_loss
 from verl.trainer.ppo.metric_utils import (compute_data_metrics,
                                            compute_throughout_metrics,
@@ -107,6 +106,13 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
         self.em_client = EMClient(base_url=self.config.experience_maker.base_url)
         self.env_manager = ParallelEnvManager(config=self.config, async_rollout_manager=self.async_rollout_manager, max_parallel=self.config.actor_rollout_ref.rollout.max_env_worker)
         self.thread_pool = ThreadPoolExecutor(max_workers=self.config.thread_pool.max_workers)
+
+        if self.config.actor_rollout_ref.rollout.mode == "async":
+            from beyondagent.module.trainer.ba_async_llm_server_manager import BaAsyncLLMServerManager
+            self.async_rollout_mode = True
+            self.async_rollout_manager = BaAsyncLLMServerManager(
+                config=self.config,
+                worker_group=self.actor_rollout_wg)
     
     def _validate_config(self):
         # 0623 yunpeng add. keep the same as the original func except for the param of tool_config_path
@@ -276,7 +282,8 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
             # pad to be divisible by dp_size
             # test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
             if not self.async_rollout_mode:
-                test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
+                raise NotImplementedError
+
             else:
                 self.async_rollout_manager.wake_up()
                 tasks = [Task(

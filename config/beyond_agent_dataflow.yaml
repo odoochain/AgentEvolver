@@ -32,6 +32,9 @@ actor_rollout_ref:
     max_env_worker: 64
     max_env_len: 4096
 
+multi_turn:
+  completion_callback: beyondagent.module.trainer.simple_completion_callback.SimpleCompletionCallback
+
 thread_pool:
   max_workers: 5
 

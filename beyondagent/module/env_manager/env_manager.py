@@ -37,8 +37,9 @@ class ParallelEnvManager(object):
         self.rollout_config = config.actor_rollout_ref.rollout
 
     def get_llm_chat_fn(self, sampling_params: dict = None) -> callable:
-        def llm_chat(messages: List[Dict[str, str]], custom_sampling_params: dict = None) -> List[
-            Dict[str, Any]]:
+        def llm_chat(messages: List[Dict[str, str]],
+                     custom_sampling_params: dict = None,
+                     request_id: str = None) -> List[Dict[str, Any]]:
             """
             input messages: [{"role": "system", "value": "..."}, {"role": "user", "value": "..."}]
             output messages: [{"role": "assistant", "value": "..."}]
@@ -53,8 +54,10 @@ class ParallelEnvManager(object):
             # output_messages = []
             input_messages = copy.deepcopy(messages)
             self.async_rollout_manager.submit_chat_completions(messages=input_messages,
-                                                               sampling_params=updated_sampling_params)
-            return input_messages[len(messages):]
+                                                               sampling_params=updated_sampling_params,
+                                                               request_id=request_id)
+
+            return input_messages[-1]
 
         return llm_chat
 

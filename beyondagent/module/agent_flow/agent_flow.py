@@ -30,6 +30,7 @@ class AgentFlow(BaseAgentFlow):
             else:
                 logger.info(f"history_experience is empty!")
 
+        request_id: str = ""
         for act_step in range(self.max_steps):
             # if use qwen3, add /no_think
             if self.config.actor_rollout_ref.rollout.use_qwen3:
@@ -48,12 +49,18 @@ class AgentFlow(BaseAgentFlow):
                 break
 
             # callback llm server, messages.size=1
-            llm_output = self.llm_chat_fn(trajectory.steps)
-            # llm_output = self.llm_chat_fn(trajectory.steps, custom_sampling_params={"max_completion_tokens": self.max_model_len-current_token_len})
-            assert len(llm_output) == 1, llm_output
-            trajectory.steps.extend(llm_output)
+            llm_output_content, new_request_id = self.llm_chat_fn(trajectory.steps, request_id=request_id)
+            logger.info(f"llm_output_content={llm_output_content} "
+                        f"new_request_id={new_request_id} "
+                        f"request_id={request_id}")
+            request_id = new_request_id
 
-            env_output = env.step(instance_id, llm_output[0])
+            trajectory.steps.append({
+                "role": "assistant",
+                "content": llm_output_content,
+            })
+
+            env_output = env.step(instance_id, trajectory.steps[-1])
             # convert role_tool to role_user message
             # breakpoint()
             
