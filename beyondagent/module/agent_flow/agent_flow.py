@@ -1,5 +1,6 @@
 import json
 import time
+from typing import Optional
 
 from loguru import logger
 
@@ -12,14 +13,20 @@ from beyondagent.utils.utils import convert_tool_to_user_message
 
 class AgentFlow(BaseAgentFlow):
 
-    def __init__(self, **kwargs):
+    def __init__(self,enable_context_generator:Optional[bool]=None, **kwargs):
         super().__init__(**kwargs)
+        # 优先传入的参数
+        self._enable_context_generator = enable_context_generator
+        # TODO: 重构代码，避免额外的适配
+        if self._enable_context_generator==None:
+            self._enable_context_generator=self.config.experience_maker.enable_context_generator
+
         self.instruction_template_ids = self.tokenizer.encode("<|im_start|>user\n")
         self.response_template_ids = self.tokenizer.encode("<|im_start|>assistant\n")
         self.em_client = EMClient(base_url=self.config.experience_maker.base_url)
 
     def execute(self, trajectory: Trajectory, env: EnvClient, instance_id: str, **kwargs) -> Trajectory:
-        if self.config.experience_maker.enable_context_generator:  # add by jinli 0618
+        if self._enable_context_generator:
             history_experience = self.em_client.call_context_generator(
                 trajectory=trajectory,
                 retrieve_top_k=self.config.experience_maker.retrieve_top_k,
@@ -90,16 +97,18 @@ class AgentFlow(BaseAgentFlow):
             
             # useless: for tool role
             if env_output["state"]["role"] == "tool":
-                env_output["state"] = convert_tool_to_user_message(env_output["state"], self.tokenizer, format="qwen")
+                env_output["state"] = convert_tool_to_user_message(env_output["state"], format="qwen")
             
             state_content: str = env_output["state"]["content"]
-            if len(self.tokenizer(state_content, return_tensors="pt", padding=False)["input_ids"][
-                       0]) > self.max_env_len:
-                env_output["state"]["content"] = state_content[:self.max_env_len]
+            # TODO(cc): 不知道在干嘛，tokenize 之后的长度也和之前的长度没关系啊？总之我先去掉了
+            # if len(self.tokenizer(state_content, return_tensors="pt", padding=False)["input_ids"][
+            #            0]) > self.max_env_len:
+            #     env_output["state"]["content"] = state_content[:self.max_env_len]
+            env_output["state"]["content"] = state_content[:self.max_env_len]
+            
 
-            trajectory.steps.append(env_output["state"])
+            trajectory.steps.append(sanitize_env_state(env_output['state']))
             trajectory.is_terminated = env_output["is_terminated"]
-
             # TODO require env
             # trajectory.reward.outcome = env_output["reward"]["outcome"]
             # trajectory.reward.description = env_output["reward"]["description"]
@@ -117,3 +126,14 @@ class AgentFlow(BaseAgentFlow):
             trajectory.steps = trajectory.steps[:-1]
 
         return trajectory
+
+
+def sanitize_env_state(state: dict):
+    """
+    sanitize env state
+    """
+    # remove empty tool_calls
+    if "tool_calls" in state and not state["tool_calls"]:
+        state.pop("tool_calls")
+    
+    return state

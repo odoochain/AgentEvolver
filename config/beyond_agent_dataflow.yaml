@@ -31,6 +31,7 @@ actor_rollout_ref:
       name: ""
     use_qwen3: True
     max_env_worker: 64
+    max_model_len: 16384 # cc: 我随便写的
     max_env_len: 4096
     enable_request_id: False
 

@@ -127,3 +127,7 @@ log
 outputs
 python_log
 experiments
+
+
+# local file
+/_resources

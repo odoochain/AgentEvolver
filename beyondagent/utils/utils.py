@@ -1,7 +1,7 @@
 from typing import Any, List, Dict
 
 # apply chat_template to a message, and then convert back to message
-def convert_tool_to_user_message(tool_message, tokenizer, format="qwen"):
+def convert_tool_to_user_message(tool_message, format="qwen"):
     assert format == "qwen"
 
     if tool_message["role"] == "user":
