@@ -1,7 +1,7 @@
 import json
 from typing import Optional, Sequence, Tuple
 
-from beyondagent.schema.task import Task,TaskObjective
+from beyondagent.schema.task import Task, TaskObjective
 from beyondagent.schema.trajectory import Trajectory
 
 
@@ -45,50 +45,56 @@ For every task you identify, output exactly one block in the form below:
 </task>
 """
 
-def _get_action_observation_pair(traj:Trajectory)->list[tuple[str,str]]:
-    res=[]
-    for idx,step in enumerate(traj.steps):
-        assert 'role' in step, "steps must have role field"
-        if step['role']=='assistant' and idx+1<len(traj.steps):
-            next_step=traj.steps[idx+1]
+
+def _get_action_observation_pair(traj: Trajectory) -> list[tuple[str, str]]:
+    res = []
+    for idx, step in enumerate(traj.steps):
+        assert "role" in step, "steps must have role field"
+        if step["role"] == "assistant" and idx + 1 < len(traj.steps):
+            next_step = traj.steps[idx + 1]
             # As there is no standard for environments, we do not know whether it will response as user or tool.
-            if next_step['role']=='tool':
+            if next_step["role"] == "tool":
                 # get observation from tool message
-                observation=next_step['content']
-            elif next_step['role']=='user':
+                observation = next_step["content"]
+            elif next_step["role"] == "user":
                 # get observation from user message
-                observation=next_step['content']
+                observation = next_step["content"]
             else:
                 continue
-            res.append((step['content'],observation))
-    
+            res.append((step["content"], observation))
+
     return res
 
-def get_task_summarize_prompt(trajectories:Sequence[Trajectory],old_objectives:Sequence[TaskObjective],len_history:int=2) -> tuple[str,str]:
+
+def get_task_summarize_prompt(
+    trajectories: Sequence[Trajectory],
+    old_objectives: Sequence[TaskObjective],
+    len_history: int = 2,
+) -> tuple[str, str]:
     """获取任务摘要 prompt"""
-    x=""
-    idx=0
+    x = ""
+    idx = 0
     for traj in trajectories:
-        pairs=_get_action_observation_pair(traj)
-        for k,v in enumerate(pairs):
-            histories=pairs[max(0,k-len_history):k]
-            x+=f"## Record {idx}\n"
-            x+=f"### History\n"
+        pairs = _get_action_observation_pair(traj)
+        for k, v in enumerate(pairs):
+            histories = pairs[max(0, k - len_history) : k]
+            x += f"## Record {idx}\n"
+            x += f"### History\n"
             for history in histories:
-                x+=f"{history[0]}\n->\n{history[1]}\n\n"
-            x+=f"### Action\n{v[0]}\n"
-            x+=f"### Observation\n{v[1]}\n"
-            x+=f"### Reward: {traj.reward.outcome}\n{traj.reward.description}\n"
-            idx+=1
-    
-    objectives:list[str]=[]
+                x += f"{history[0]}\n->\n{history[1]}\n\n"
+            x += f"### Action\n{v[0]}\n"
+            x += f"### Observation\n{v[1]}\n"
+            x += f"### Reward: {traj.reward.outcome}\n{traj.reward.description}\n"
+            idx += 1
+
+    objectives: list[str] = []
     for ob in old_objectives:
-        if isinstance(ob.objective,str):
+        if isinstance(ob.objective, str):
             objectives.append(ob.objective)
         else:
             objectives.extend(ob.objective)
-    
-    user_prompt=f"""Please analyze the following agent interaction sequence and abstract specific tasks from it:
+
+    user_prompt = f"""Please analyze the following agent interaction sequence and abstract specific tasks from it:
 
 {x}
 
@@ -103,38 +109,45 @@ Please avoid repeating the objectives in the current exploration.
 
 Please identify the specific tasks the agent is attempting to complete in these interactions, and abstract them into clear task descriptions and queries following the specified format.
 """
-    print("old_objectives: ",objectives)
+    print("old_objectives: ", objectives)
 
-    return AGENT_SUMMARIZE_SYSTEM_PROMPT,user_prompt
+    return AGENT_SUMMARIZE_SYSTEM_PROMPT, user_prompt
 
 
-def parse_tasks_from_response(task:Task,response: str) -> list[TaskObjective]:
+def parse_tasks_from_response(task: Task, response: str) -> list[TaskObjective]:
     """从响应中解析任务列表"""
-    task=task.copy()
-    
+    task = task.copy()
+
     tasks: list[TaskObjective] = []
     try:
         import re
-        
+
         # 找到所有<task>标签中的内容
-        task_matches = re.findall(r'<task>(.*?)</task>', response, re.DOTALL)
-        
+        task_matches = re.findall(r"<task>(.*?)</task>", response, re.DOTALL)
+
         for task_content in task_matches:
-            t=json.loads(task_content)
-            
+            t = json.loads(task_content)
+
             # 检查必要字段
-            if 'description' not in t or 'query' not in t or 'confidence' not in t or 'action_sequence' not in t:
+            if (
+                "description" not in t
+                or "query" not in t
+                or "confidence" not in t
+                or "action_sequence" not in t
+            ):
                 continue
-            task.query=t['query']
-            tasks.append(TaskObjective(
-                task=task,
-                description=t['description'],
-                confidence=t['confidence'],
-                ground_truth=t['action_sequence'],
-                reward=None
-            ))
-                
+            task.query = t["query"]
+            tasks.append(
+                TaskObjective(
+                    task=task,
+                    description=t["description"],
+                    confidence=t["confidence"],
+                    ground_truth=t["action_sequence"],
+                    reward=None,
+                )
+            )
+
     except Exception as e:
         print(f"Error parsing tasks: {e}")
-    
+
     return tasks

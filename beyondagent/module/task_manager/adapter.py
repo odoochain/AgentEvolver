@@ -13,7 +13,12 @@ from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.processing_utils import ProcessorMixin
 
 
-def to_rl_dataset(tasks: Sequence[TaskObjective],tokenizer: PreTrainedTokenizer, config: DictConfig,processor: Optional[ProcessorMixin] = None,) -> RLHFDataset:
+def to_rl_dataset(
+    tasks: Sequence[TaskObjective],
+    tokenizer: PreTrainedTokenizer,
+    config: DictConfig,
+    processor: Optional[ProcessorMixin] = None,
+) -> RLHFDataset:
     processed_records = []
 
     for task_obj in tasks:
@@ -22,11 +27,11 @@ def to_rl_dataset(tasks: Sequence[TaskObjective],tokenizer: PreTrainedTokenizer,
         # 处理 query 字段
         query = task.query
         if isinstance(query, list):
-            query_str = '\n'.join(str(x) for x in query)
+            query_str = "\n".join(str(x) for x in query)
         else:
             query_str = str(query)
 
-        prompt = [{'content': query_str,'role': 'user'}]
+        prompt = [{"content": query_str, "role": "user"}]
 
         # 构建 reward_model
         ground_truth = [task_obj.ground_truth] if task_obj.ground_truth else []
@@ -36,24 +41,21 @@ def to_rl_dataset(tasks: Sequence[TaskObjective],tokenizer: PreTrainedTokenizer,
 
         # 构建单条记录
         record = {
-            'data_source': task.env_type,
-            'prompt': prompt,
-            'reward_model': {
-                'ground_truth': ground_truth,
-                'style': 'rule'
-            },
-            'uuid': record_uuid,
-            'extras': {'task_id': task.task_id}
+            "data_source": task.env_type,
+            "prompt": prompt,
+            "reward_model": {"ground_truth": ground_truth, "style": "rule"},
+            "uuid": record_uuid,
+            "extras": {"task_id": task.task_id},
         }
 
         processed_records.append(record)
-        
+
     df = pd.DataFrame(processed_records)
     with tempfile.NamedTemporaryFile(delete=False) as f:
         df.to_parquet(f.name)
-    
+
     # 转换为 Dataset
-    return RLHFDataset([f.name],tokenizer,config,processor)
+    return RLHFDataset([f.name], tokenizer, config, processor)
 
 
 class OnflyRlDataset(IterableDataset):
@@ -88,13 +90,15 @@ class OnflyRlDataset(IterableDataset):
         # release used datasets
         if self._do_release_used_dataset:
             self._release_used_dataset()
-        
-        self._cur+=1
+
+        self._cur += 1
         return self._datasets[self._cur_dataset][this_cur]
 
     @property
     def num_rest_data(self) -> int:
-        return sum([len(d) for d in self._datasets[self._cur_dataset :]])-(self._cur - self._passed_datasets_cnt)
+        return sum([len(d) for d in self._datasets[self._cur_dataset :]]) - (
+            self._cur - self._passed_datasets_cnt
+        )
 
     def append_dataset(self, dataset: RLHFDataset):
         self._datasets.append(dataset)

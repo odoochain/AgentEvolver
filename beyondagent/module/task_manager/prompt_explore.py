@@ -41,16 +41,20 @@ Ensure that the action is in the correct format. If the action is invalid, verif
 
 """
 
-def get_agent_interaction_system_prompt(task: Task, old_objectives: Sequence[TaskObjective]) -> str:
+
+def get_agent_interaction_system_prompt(
+    task: Task, old_objectives: Sequence[TaskObjective]
+) -> str:
     """获取环境交互系统提示"""
-    objectives:list[str]=[]
+    objectives: list[str] = []
     for ob in old_objectives:
-        if isinstance(ob.objective,str):
+        if isinstance(ob.objective, str):
             objectives.append(ob.objective)
         else:
             objectives.extend(ob.objective)
-            
+
     return AGENT_INTERACTION_SYSTEM_PROMPT.format(old_objectives="\n".join(objectives))
+
 
 def parse_action_from_response(response: str) -> str:
     """从响应中解析动作"""
@@ -60,24 +64,21 @@ def parse_action_from_response(response: str) -> str:
         end_tag = "</action>"
         start_idx = response.find(start_tag)
         end_idx = response.find(end_tag)
-        
+
         if start_idx != -1 and end_idx != -1:
-            action = response[start_idx + len(start_tag):end_idx].strip()
+            action = response[start_idx + len(start_tag) : end_idx].strip()
             return action
         else:
             # 如果没有找到标签，尝试提取第一行有意义的文本
-            lines = response.strip().split('\n')
+            lines = response.strip().split("\n")
             for line in lines:
                 line = line.strip()
-                if line and not line.startswith('#') and not line.startswith('**'):
+                if line and not line.startswith("#") and not line.startswith("**"):
                     return line
-        
+
         return "invalid action"  # 默认动作
     except Exception:
         return "invalid action"  # 默认动作
-    
-    
-__all__=[
-    "get_agent_interaction_system_prompt",
-    "parse_action_from_response"
-]
+
+
+__all__ = ["get_agent_interaction_system_prompt", "parse_action_from_response"]
