@@ -17,6 +17,9 @@ actor_rollout_ref:
   hybrid_engine: True
   actor:
     loss_agg_mode: seq-mean-token-mean
+    entropy_mask:
+      mode: null
+      raw: null
   rollout:
     name: vllm
     mode: async
@@ -34,6 +37,7 @@ actor_rollout_ref:
     max_env_len: 4096
     enable_request_id: False
 
+
 thread_pool:
   max_workers: 5
 
@@ -47,3 +51,5 @@ experience_maker:
   enable_summarizer: False
   enable_context_generator: False
   retrieve_top_k: 3
+
+
