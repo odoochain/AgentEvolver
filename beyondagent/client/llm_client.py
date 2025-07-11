@@ -45,10 +45,9 @@ class DashScopeClient:
         }
         
         try:
-            response = requests.post(url, headers=self.headers, json=params, timeout=60)
+            response = requests.post(url, headers=self.headers, json=params, timeout=600)
             if not response.ok:
                 logger.error(f"API request failed: {response.text}")
-                import pdb;pdb.set_trace()
                 response.raise_for_status()
             
             result = response.json()
