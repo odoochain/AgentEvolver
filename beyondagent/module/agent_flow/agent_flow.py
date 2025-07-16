@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Optional
+from typing import Optional, cast
 
 from loguru import logger
 
@@ -91,6 +91,7 @@ class AgentFlow(BaseAgentFlow):
 
             try:
                 env_output = env.step(instance_id, llm_output)
+                env_messages: list[dict] = env_output["state"]
             except Exception as e:
                 logger.exception(f"call env.step error with {e}")
                 break
@@ -98,19 +99,20 @@ class AgentFlow(BaseAgentFlow):
             # breakpoint()
             
             # useless: for tool role
-            if env_output["state"]["role"] == "tool":
-                env_output["state"] = convert_tool_to_user_message(env_output["state"], format="qwen")
-            
-            state_content: str = env_output["state"]["content"]
-            
-            env_output["state"]["content"] = clip_state_content_correctly(
-                self.tokenizer, 
-                state_content,
-                self.max_env_len
-            )
-            
+            for env_message in env_messages:
+                if env_message["role"] == "tool":
+                    env_message = cast(dict, convert_tool_to_user_message(env_message, format="qwen"))
+                
+                state_content: str = env_message["content"]
+                
+                env_message["content"] = clip_state_content_correctly(
+                    self.tokenizer, 
+                    state_content,
+                    self.max_env_len
+                )
+                
 
-            trajectory.steps.append(sanitize_env_state(env_output['state']))
+                trajectory.steps.append(sanitize_env_state(env_message))
             trajectory.is_terminated = env_output["is_terminated"]
             # TODO require env
             # trajectory.reward.outcome = env_output["reward"]["outcome"]

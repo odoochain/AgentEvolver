@@ -563,7 +563,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                 self.async_rollout_manager.wake_up()
                 tasks = [Task(
                             task_id=test_gen_batch.non_tensor_batch["extras"][i]["task_id"], 
-                            query=test_gen_batch.non_tensor_batch["raw_prompt"][i][-1]['content'], # TODO: temp solution to get the query str,
+                            query=test_gen_batch.non_tensor_batch["extras"][i]['new_query'],
                             env_type=self.config.env_service.env_type
                          ) for i in range(len(test_gen_batch))]
                 print("=" * 10 + "start validate rollout" + "=" * 10)
@@ -718,7 +718,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             # gen_batch_output = self.explorer_manager.rollout(gen_batch)
                             tasks = [Task(
                                         task_id=gen_batch.non_tensor_batch["extras"][i]["task_id"], 
-                                        query=gen_batch.non_tensor_batch["raw_prompt"][i][-1]['content'], # TODO: temp solution to get the query str
+                                        query=gen_batch.non_tensor_batch["extras"][i]['new_query'],
                                         env_type=self.config.env_service.env_type,
                                         evaluator='synthetic' if gen_batch.non_tensor_batch['extras'][i]['synthetic'] else 'env',
                                     ) for i in range(len(gen_batch))]

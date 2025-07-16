@@ -48,7 +48,6 @@ class TaskManagerProps(TypedDict):
     num_explore_threads: int
     n: int
     
-    cache_dir: str
     exploration_llm_temperature: NotRequired[float]
     exploration_llm_top_p: NotRequired[float]
     exploration_llm_top_k: NotRequired[int]
@@ -83,10 +82,6 @@ class TaskManager(object):
         self._num_exploration_threads = kwargs["num_explore_threads"] or 10
         self._n = kwargs["n"]
         
-        self._cache_dir=kwargs.get("cache_dir")
-        if not os.path.exists(self._cache_dir):
-            os.makedirs(self._cache_dir)
-        
         self._exploration_llm_temperature = kwargs.get(
             "exploration_llm_temperature", 1.0
         )
@@ -108,53 +103,19 @@ class TaskManager(object):
     
     def load_tasks(self,tasks:Sequence[Task]):
         self._tasks.extend(tasks)
-        logger.info(f"loaded tasks, current # of tasks={len(self._tasks)}")
+        assert all([x.query is None for x in self._tasks]), "query of seed task must be empty"
+        logger.info(f"loaded tasks, #tasks={len(self._tasks)}")
         
     def load_tasks_from_dataset(self, dataset: RLHFDataset,*, env_type:str):
         self._tasks.extend(adapter.convert_to_tasks(dataset,env_type=env_type))
-        logger.info(f"loaded tasks from dataset, current # of tasks={len(self._tasks)}")
+        assert all([x.query is None for x in self._tasks]), "query of seed task must be empty"
+        logger.info(f"loaded tasks from dataset, #tasks={len(self._tasks)}")
     
-    def load_tasks_from_environment(self, env: EnvClient, *, env_type: str, split: str, params: Optional[dict] = None):
-        # load from cache if exists
-        cache_path=os.path.join(self._cache_dir, f"tasks-{env_type}-{split}.pkl")
-        if os.path.exists(cache_path):
-            logger.info(f"loading tasks from cache, {cache_path}")
-            with open(cache_path, "rb") as f:
-                tasks = pickle.load(f)
-                self._tasks.extend(tasks)
-            return
-        
-        response = env.get_task_ids(env_type, split, params)
-        
-        delta=[]
-        with ThreadPoolExecutor(max_workers=200) as executor:
-            futures = []
-            for id, task_id in enumerate(response):
-                futures.append(executor.submit(
-                    self._process_task, 
-                env, env_type, task_id, id
-                ))
-        
-            for future in as_completed(futures):
-                task = future.result()
-                if task:delta.append(task)
-        
-        logger.info(f"saving tasks to cache, {cache_path}")
-        with open(cache_path, "wb") as f:
-            pickle.dump(delta, f)
-    
+    def load_tasks_from_environment(self, env: EnvClient, *, env_type: str, split: str, params: Optional[dict] = None):        
+        response = env.get_env_profile(env_type, split, params)
+        self._tasks.extend([Task(task_id=str(x),env_type=env_type,evaluator='env') for x in response])
+        assert all([x.query is None for x in self._tasks]), "query of seed task must be empty"
         logger.info(f"loaded tasks from environment, #tasks={len(self._tasks)}")
-
-    def _process_task(self, env, env_type, task_id, id):
-        instance_id = f"task_manager_get_query_{id}"
-        try:
-            instance = env.create_instance(env_type, task_id, instance_id=instance_id)
-            query = instance["state"]["content"]
-            env.release_instance(instance_id)
-            return Task(task_id=str(task_id), env_type=env_type, query=query, evaluator='env')
-        except Exception as e:
-            logger.error(f"failed to process task {task_id}: {e}")
-            return None
 
     def register_filter(self, filter: TaskPostFilter):
         self._filters.append(filter)

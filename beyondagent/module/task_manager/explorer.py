@@ -56,14 +56,14 @@ class Explorer(object):
             )
 
         try:
-            state_message: dict = init_response["state"]
-            query = state_message["content"]
-            step = []
+            state_message: list[dict] = init_response["state"]
+            assert isinstance(state_message,list), "state_message must be list"
+            step:list[dict] = []
             if system_prompt is not None:
                 step.append({"role": "system", "content": system_prompt})
-            step.append(state_message)
+            step.extend(state_message)
             trajectory: Trajectory = Trajectory(
-                data_id=data_id, rollout_id=rollout_id, steps=step, query=query
+                data_id=data_id, rollout_id=rollout_id, steps=step, query=state_message[-1]['content']
             )
             trajectory: Trajectory = agent_flow.execute(
                 trajectory=trajectory,

@@ -23,25 +23,26 @@ class EnvWorker(object):
         trajectory: Trajectory = Trajectory(data_id=data_id, rollout_id=rollout_id, steps=[], query="")
 
         try:
-            # cc: this is just a temporary solution
-            if not self.task.is_query_empty:
-                params={"query":self.task.first_query}
-            else:
-                params=None
             init_response = self.env.create_instance(env_type=self.env_type,
                                                     task_id=self.task_id,
-                                                    instance_id=self.instance_id,
-                                                    params=params) # type: ignore
+                                                    instance_id=self.instance_id)
         except Exception as e:
             logger.exception(f"encounter exception in env_worker.create_instance~ error={e.args}")
             return trajectory
+        
+        
 
         try:
-            state_message: dict = init_response["state"]
+            state_message: list[dict] = init_response["state"]
+            assert isinstance(state_message,list), "state_message must be list"
+            # replace query if new query is in task
+            if self.task.query is not None:
+                assert state_message[-1]["role"] == "user", "the latest message from environment must be user query"
+                state_message[-1]["content"] = self.task.query
             trajectory: Trajectory = Trajectory(data_id=data_id,
                                                 rollout_id=rollout_id,
-                                                steps=[state_message],
-                                                query=state_message["content"])
+                                                steps=state_message,
+                                                query=state_message[-1]["content"])
             trajectory: Trajectory = agent_flow.execute(trajectory=trajectory, env=self.env, instance_id=self.instance_id,
                                                         **kwargs)
         except Exception as e:

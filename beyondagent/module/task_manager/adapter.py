@@ -17,10 +17,10 @@ def convert_to_tasks(dataset:RLHFDataset,env_type:str)->list[Task]:
     """
     res=[]
     for record in dataset:
+        # set query to None to disable query replacement
         task = Task(
             task_id=record["extras"]["task_id"],
             env_type=env_type,
-            query=record["raw_prompt"][-1]["content"], # 取出原始 prompt
         )
         res.append(task)
     
@@ -37,31 +37,20 @@ def to_rl_dataset(
     for task_obj in tasks:
         task = task_obj.task
 
-        # 处理 query 字段
-        query = task.query
-        # 如果已经是 message，直接使用
-        if isinstance(query, list) and 'content' in query[0]:
-            prompt=query
-        else:
-            if isinstance(query, list):
-                query_str = "\n".join(str(x) for x in query)
-            else:
-                query_str = str(query)
-            prompt = [{"content": query_str, "role": "user"}]
-
         # 构建 reward_model
         ground_truth = [task_obj.ground_truth] if task_obj.ground_truth else []
-
-        # 生成 uuid
-        record_uuid = str(uuid.uuid4())
 
         # 构建单条记录
         record = {
             "data_source": task.env_type,
-            "prompt": prompt,
+            "prompt": [{"content": "", "role": "user"}], # `prompt` is never used. trainer will get trajectories from env.
             "reward_model": {"ground_truth": ground_truth, "style": "rule"},
-            "uuid": record_uuid,
-            "extras": {"task_id": task.task_id, "synthetic": task_obj.ground_truth!='[env]'}, # TODO: this is a temporary solution
+            "uuid": str(uuid.uuid4()),
+            "extras": {
+                "task_id": task.task_id,
+                "new_query": task.query,
+                "synthetic": task_obj.ground_truth!='[env]' # TODO: this is a temporary solution
+            },
         }
 
         processed_records.append(record)

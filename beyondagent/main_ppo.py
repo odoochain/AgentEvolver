@@ -193,7 +193,6 @@ class TaskRunner:
             max_llm_retries=config.task_manager.max_llm_retries,
             max_explore_step=config.task_manager.max_explore_step,
             num_explore_threads=config.task_manager.num_explore_threads,
-            cache_dir=config.task_manager.cache_dir,
             n=config.task_manager.n,
             task_summary_history_length=config.task_manager.task_summary_history_length,
             use_original_tasks=config.task_manager.use_original_tasks
@@ -207,7 +206,6 @@ class TaskRunner:
             max_llm_retries=config.task_manager.max_llm_retries,
             max_explore_step=config.task_manager.max_explore_step,
             num_explore_threads=config.task_manager.num_explore_threads,
-            cache_dir=config.task_manager.cache_dir,
             n=config.task_manager.n,
             task_summary_history_length=config.task_manager.task_summary_history_length,
             use_original_tasks=config.task_manager.use_original_tasks
