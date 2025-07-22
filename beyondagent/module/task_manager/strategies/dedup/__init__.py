@@ -28,6 +28,9 @@ class LlmDedupExploreStrategyProps(TypedDict):
     exploration_llm_top_k: NotRequired[int]
     task_summary_history_length: NotRequired[int]
     
+    temp_db_path: NotRequired[str]
+    state_similarity_threshold: float
+    
     
 
 class LlmDedupSamplingExploreStrategy(TaskExploreStrategy):
@@ -44,7 +47,10 @@ class LlmDedupSamplingExploreStrategy(TaskExploreStrategy):
         self._exploration_llm_top_k=kwargs.get("exploration_llm_top_k", 1)
         self._task_summary_history_length=kwargs.get("task_summary_history_length", self._max_explore_step)
         
-        self._state_recorder=StateRecorder(similarity_threshold=0.8) # TODO
+        self._temp_db_path=kwargs.get("temp_db_path", "./.temp_vec_db")
+        self._state_similarity_threshold=kwargs.get("state_similarity_threshold")
+        
+        self._state_recorder=StateRecorder(similarity_threshold=self._state_similarity_threshold,chroma_db_path=self._temp_db_path)
         
     
     def explore(self, task: Task, data_id: str, rollout_id: str) -> list[Trajectory]:

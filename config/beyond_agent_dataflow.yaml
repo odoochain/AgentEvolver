@@ -65,6 +65,21 @@ task_manager:
     exploration_llm_top_p: 1.0
     exploration_llm_top_k: 1
     task_summary_history_length: 10 # the size of sliding windows used in task summarization
+  
+  strategy: deduplication
+  strategy_args:
+    max_explore_step: 15
+    max_llm_retries: 3
+    env_url: ${env_service.env_url}
+    exploration_llm_temperature: 1.0
+    exploration_llm_top_p: 1.0
+    exploration_llm_top_k: 1
+    task_summary_history_length: 10 # the size of sliding windows used in task summarization
+
+    # where to cache the embeddings
+    temp_db_path: ./.temp_vec_db
+    # similarity threshold. two trajectories are considered arriving at the same state if their embeddings are above this threshold.
+    state_similarity_threshold: 0.85
 
 
 experience_maker:
