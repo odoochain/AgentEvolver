@@ -26,6 +26,7 @@ class AgentFlow(BaseAgentFlow):
         self.em_client = EMClient(base_url=self.config.experience_maker.base_url)
 
     def execute(self, trajectory: Trajectory, env: EnvClient, instance_id: str, **kwargs) -> Trajectory:
+        # In some cases, context_generator will be disabled by setting self._enable_context_generator to False.
         if self._enable_context_generator:
             history_experience = self.em_client.call_context_generator(
                 trajectory=trajectory,
