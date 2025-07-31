@@ -41,7 +41,7 @@ from verl.single_controller.ray import RayClassWithInitArgs, create_colocated_wo
 from verl.single_controller.ray.base import RayWorkerGroup
 from verl.trainer.ppo import core_algos
 from verl.trainer.ppo.core_algos import agg_loss
-from verl.trainer.ppo.metric_utils import (compute_data_metrics,
+from beyondagent.utils.metric_utils import (compute_data_metrics,
                                            compute_throughout_metrics,
                                            compute_timing_metrics,
                                            process_validation_metrics)
