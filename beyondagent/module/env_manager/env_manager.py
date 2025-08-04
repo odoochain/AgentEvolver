@@ -10,7 +10,7 @@ from omegaconf import DictConfig
 from tensordict import TensorDict
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
-from beyondagent.module.task_manager.reward import LlmAsJudgeRewardCalculator
+from beyondagent.module.task_manager.rewards.reward import LlmAsJudgeRewardCalculator
 from verl import DataProto
 from verl.utils.model import compute_position_id_with_mask
 from verl.utils.torch_functional import (pad_sequence_to_length)
