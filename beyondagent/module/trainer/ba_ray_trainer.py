@@ -60,7 +60,7 @@ from beyondagent.module.task_manager import adapter as task_adapter
 from beyondagent.module.task_manager import TaskManager,NaiveTaskObjectiveRetrieval
 from beyondagent.schema.task import Task
 from beyondagent.schema.trajectory import Trajectory
-from verl.utils.tracking import ValidationGenerationsLogger
+from beyondagent.utils.tracking import ValidationGenerationsLogger
 
 
 def parse_reward_from_dataproto(data: DataProto, return_dict=False) -> dict | torch.Tensor:
@@ -655,7 +655,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
         """
         from omegaconf import OmegaConf
 
-        from verl.utils.tracking import Tracking
+        from beyondagent.utils.tracking import Tracking
 
         logger = Tracking(
             project_name=self.config.trainer.project_name,
