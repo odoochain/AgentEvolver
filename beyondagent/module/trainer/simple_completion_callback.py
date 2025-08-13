@@ -18,8 +18,7 @@ class SimpleCompletionCallback(CompletionCallback):
             message["content"] = ""
         message["request_id"] = completions.id
         messages.append(message)
-        # logger.info(f"completions={completions.model_dump_json()}")
-        # finish_reason = completions.choices[0].finish_reason
+        
 
     def postprocess(self, batch: DataProto, batch_conversations: List[List[Dict[str, str]]], n: int) -> DataProto:
         """Post process batch data.

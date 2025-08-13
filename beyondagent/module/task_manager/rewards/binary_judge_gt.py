@@ -200,10 +200,6 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
                 else:
                     score = 0.2 * intent_score + 0.8 * correct_score
                     score = correct_score
-
-                logger.info(
-                    f"LLM judge parsed -> critical={critical}, intent={intent_score}, correct={correct_score}, reward={score}"
-                )
             except Exception as e:
                 logger.exception(f"Failed to parse LLM judge response: {e}. Raw response: {response!r}")
                 score = 0.0

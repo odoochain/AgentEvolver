@@ -62,7 +62,6 @@ class AgentFlow:
             "request_id": self._request_id,
             "time_cost": time_cost,
         }
-        logger.info(f"info_dict={json.dumps(info_dict)}")
 
         self._request_id = new_request_id
         trajectory.steps.append(llm_output)

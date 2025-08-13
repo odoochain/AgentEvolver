@@ -128,7 +128,6 @@ Now decide the single best next action.""".strip()
                 "request_id": request_id,
                 "time_cost": time_cost,
             }
-            logger.info(f"info_dict={json.dumps(info_dict)}")
 
             request_id = new_request_id
             old_trajectory=trajectory.copy()
