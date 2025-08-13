@@ -104,30 +104,39 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
     RewardCalculator that uses LLM as judge.
     """
     # 定义类变量，跨实例共享
-    _running_judge_mean = 0.5  # 初始化为默认值
+    _running_judge_mean_fast = 0.5  # 初始化为默认值
+    _running_judge_mean_slow = 0.5  # 初始化为默认值
+    
+    _alpha_fast=0.9
+    _alpha_slow=0.99
     _update_lock = threading.Lock()  # 锁也需要作为类变量共享
 
-    def __init__(self, task: Task, model_name='qwq-plus', mean_score: float = 0.5):
+    def __init__(self, task: Task, model_name='qwq-plus'):
         super().__init__(task)
 
         self._client = DashScopeClient(model_name=model_name)
-        self._mean_score = mean_score
 
     @classmethod
-    def update_running_judge_mean(cls, new_score: float):
+    def update_running_mean(cls, new_score: float):
         """
         更新类变量 `_running_judge_mean`，用锁来保证线程安全。
         """
         with cls._update_lock:
-            cls._running_judge_mean = 0.9 * cls._running_judge_mean + 0.1 * new_score
+            cls._running_judge_mean_fast = cls._alpha_fast * cls._running_judge_mean_fast + (1-cls._alpha_fast) * new_score
+            cls._running_judge_mean_slow = cls._alpha_slow * cls._running_judge_mean_slow + (1-cls._alpha_slow) * new_score
 
     @classmethod
-    def get_running_judge_mean(cls):
+    def get_running_mean(cls):
         """
         获取当前的 `_running_judge_mean`。
         """
         with cls._update_lock:
-            return cls._running_judge_mean
+            return cls._running_judge_mean_fast
+    
+    @classmethod
+    def get_stable_mean(cls):
+        with cls._update_lock:
+            return cls._running_judge_mean_slow
     
     def pack_message(self, trajectory: Trajectory):
         """Pack trajectory into a message.
@@ -147,8 +156,8 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
             "content": USER_PROMPT.format(
                 task=task_query, 
                 trajs=steps_to_msg(trajectory.steps[2:]),
-                running_mean=self.get_running_judge_mean(),
-                mean_score=self._mean_score, reference_trajs=self.task.ground_truth or "[No solution provided, please judge the task by yourself]"
+                running_mean=self.get_running_mean(),
+                mean_score=self.get_stable_mean(), reference_trajs=self.task.ground_truth or "[No solution provided, please judge the task by yourself]"
                 )
             }
         )
@@ -200,7 +209,7 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
         else:
             logger.warning("Empty LLM judge response; setting score=0.0")
         
-        self.update_running_judge_mean(score)
+        self.update_running_mean(score)
 
         if not eject_llm_output:
             return score
