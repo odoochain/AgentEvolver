@@ -157,7 +157,8 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
                 task=task_query, 
                 trajs=steps_to_msg(trajectory.steps[2:]),
                 running_mean=self.get_running_mean(),
-                mean_score=self.get_stable_mean(), reference_trajs=self.task.ground_truth or "[No solution provided, please judge the task by yourself]"
+                mean_score=self.get_stable_mean(),
+                reference_trajs=self.task.ground_truth or "[No solution provided, please judge the task by yourself]"
                 )
             }
         )

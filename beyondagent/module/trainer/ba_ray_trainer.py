@@ -731,6 +731,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                                         query=gen_batch.non_tensor_batch["extras"][i]['new_query'],
                                         env_type=self.config.env_service.env_type,
                                         evaluator=gen_batch.non_tensor_batch['extras'][i]['evaluator'],
+                                        ground_truth=gen_batch.non_tensor_batch['extras'][i]['ground_truth'],
                                     ) for i in range(len(gen_batch))]
 
                             # TODO enable tracing by jinli 0619

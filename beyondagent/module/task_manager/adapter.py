@@ -39,6 +39,7 @@ def to_rl_dataset(
         task = task_obj.task
 
         # 构建 reward_model
+        # TODO 但现在的代码里似乎已经不用这个东西了
         ground_truth = [task_obj.ground_truth] if task_obj.ground_truth else []
 
         # 构建单条记录
@@ -51,6 +52,7 @@ def to_rl_dataset(
                 "task_id": task.task_id,
                 "new_query": task.query,
                 "evaluator": task.evaluator,
+                "ground_truth": task_obj.ground_truth, # 用于提供给一些 grader 使用
             },
         }
 
