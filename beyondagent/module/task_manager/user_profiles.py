@@ -4,37 +4,37 @@ from typing import List
 
 @dataclass
 class EnvEntityOpt:
-    """定义实体可执行的操作"""
+    """Define an operation that can be performed on an entity."""
     name: str
     description: str
 
 
 def get_crud_opts() -> List[EnvEntityOpt]:
-    """返回通用的 CRUD 操作集"""
+    """Return a standard set of CRUD operations."""
     return [
-        EnvEntityOpt("create", "创建该实体的新实例"),
-        EnvEntityOpt("read", "查询或检索该实体的一个或多个属性值"),
-        EnvEntityOpt("update", "修改该实体的一个或多个属性值"),
-        EnvEntityOpt("delete", "删除该实体的实例")
+        EnvEntityOpt("create", "Create a new instance of this entity."),
+        EnvEntityOpt("read", "Retrieve one or more attribute values of this entity."),
+        EnvEntityOpt("update", "Modify one or more attribute values of this entity."),
+        EnvEntityOpt("delete", "Remove an instance of this entity.")
     ]
 
 
 @dataclass
 class EnvEntity:
-    """环境中的信息实体"""
+    """Information entity in the environment."""
     name: str
     description: str
-    attrs: dict[str, str]  # 属性名 -> 描述
+    attrs: dict[str, str]
     opts: List[EnvEntityOpt]
 
 
 class TaskPreference:
-    """表示用户希望生成的任务特征"""
+    """Describe the characteristics of the task to be generated."""
     def __init__(self, num_entities: int, num_opts: int, relation_difficulty: float):
         self._num_entities = num_entities
         self._num_opts = num_opts
         self._relation_difficulty = relation_difficulty
-        assert self._relation_difficulty>=1 and self._relation_difficulty<=3
+        assert 1 <= self._relation_difficulty <= 3
 
     @property
     def num_entities(self) -> int:
@@ -46,31 +46,30 @@ class TaskPreference:
 
     @property
     def relation_difficulty(self) -> str:
-        """将难度数值映射为文字描述"""
+        """Map difficulty level to a descriptive explanation."""
         mapping = {
             1: (
-                "简单：仅涉及一个实体或一个属性，"
-                "无需跨实体或跨属性的关联操作，"
-                "可以通过单步操作完成。"
+                "Easy: Involves only one entity or one attribute. "
+                "No cross-entity or cross-attribute dependencies. "
             ),
             2: (
-                "中等：涉及多个实体或属性，"
-                "但这些操作之间相互独立，"
-                "可以并行理解，无需前后依赖条件判断。"
+                "Medium: Involves multiple entities or attributes, "
+                "but operations are independent of each other. "
+                "No prerequisite conditions or sequential dependencies."
             ),
             3: (
-                "困难：涉及多个实体或属性，"
-                "且操作必须先结合属性判断条件，"
-                "或后续操作依赖前一步的结果，"
-                "需要推理和决策。"
+                "Hard: Involves multiple entities or attributes, "
+                "and operations require prior condition checks or "
+                "depend on the results of previous steps. "
+                "Requires reasoning and decision-making."
             )
         }
-        assert self._relation_difficulty>=1 and self._relation_difficulty<=3
+        assert 1 <= self._relation_difficulty <= 3
         return mapping[int(self._relation_difficulty)]
 
 
 class UserProfile:
-    """用户档案及任务生成器"""
+    """User profile and task instruction generator."""
     def __init__(self, name: str, background: str, task: TaskPreference):
         self._name = name
         self._background = background
@@ -84,66 +83,73 @@ class UserProfile:
         self._entities.extend(entities)
 
     def get_instruction(self) -> str:
-        """
-        生成一份详细的 LLM 指令，精确描述各个部分，
-        让模型能更好地生成符合要求的 query
-        """
+        """Generate a detailed LLM instruction in English."""
         inst_parts = []
-        
-        inst_parts.append("# 角色及环境信息")
-        # 角色设定
-        inst_parts.append("### 角色设定")
+
+        inst_parts.append("# Role and Environment Information")
+
+        # Role definition
+        inst_parts.append("### Role Definition")
         inst_parts.append(
-            f"你是一个智能任务生成助手，名字是 {self._name}，你的背景信息：{self._background}。"
-            "你能够理解环境中的信息实体、属性和可执行的操作，并基于这些信息在环境中自由探索：尝试使用 API来操作相应实体。"
+            f"You are an intelligent task generation assistant named {self._name}. "
+            f"Your background: {self._background}. "
+            "You can understand the entities, attributes, and available operations in the environment, "
+            "and you are capable of freely exploring the environment: "
+            "try to use API calls to perform operations on the relevant entities."
         )
 
-        # 实体信息
-        inst_parts.append("\n### 环境实体信息")
+        # Environment entities
+        inst_parts.append("\n### Environment Entities")
         for e in self._entities:
-            inst_parts.append(f"- 实体：{e.name} — {e.description}")
+            inst_parts.append(f"- Entity: {e.name} — {e.description}")
             for attr_name, attr_desc in e.attrs.items():
-                inst_parts.append(f"  - 属性：{attr_name} — {attr_desc}")
-            inst_parts.append("  - 可执行操作：")
+                inst_parts.append(f"  - Attribute: {attr_name} — {attr_desc}")
+            inst_parts.append("  - Available Operations:")
             for opt in e.opts:
-                inst_parts.append(f"    - {opt.name}：{opt.description}")
+                inst_parts.append(f"    - {opt.name}: {opt.description}")
 
-        # 任务偏好
-        inst_parts.append("\n### 偏好")
-        inst_parts.append(f"- 涉及的平均实体数量：{self._task_preference.num_entities}")
-        inst_parts.append(f"- 涉及的平均操作数量：{self._task_preference.num_opts}")
-        inst_parts.append(f"- 关系难度：{self._task_preference.relation_difficulty}")
+        # Task preferences
+        inst_parts.append("\n### Task Preferences")
+        inst_parts.append(f"- Average number of entities involved: {self._task_preference.num_entities}")
+        inst_parts.append(f"- Average number of operations involved: {self._task_preference.num_opts}")
+        inst_parts.append(f"- Relation difficulty: {self._task_preference.relation_difficulty}")
 
-        # 开始任务
-        inst_parts.append("\n### 开始你的工作")
+        # Task start
+        inst_parts.append("\n### Start Your Work")
         inst_parts.append(
-            "现在，请充分应用上述信息，并开始探索环境吧。"
+            "Now, fully utilize the above information and start exploring the environment. "
         )
 
         return "\n".join(inst_parts)
 
 
-# ===== 示例使用 =====
+# ===== Example usage =====
 if __name__ == "__main__":
     song_entity = EnvEntity(
-        name="歌曲",
-        description="音乐收藏中的歌曲条目",
-        attrs={"标题": "歌曲的名称", "星级": "用户对歌曲的评分"},
-        opts=get_crud_opts() + [EnvEntityOpt("play", "播放该歌曲")]
+        name="Song",
+        description="A track entry in the music collection.",
+        attrs={
+            "Title": "The name of the song.",
+            "Rating": "The user's rating for the song."
+        },
+        opts=get_crud_opts() + [EnvEntityOpt("play", "Play this song.")]
     )
 
     account_entity = EnvEntity(
-        name="账号",
-        description="用户的个人账户",
-        attrs={"名字": "账户名称", "余额": "账户的当前余额"},
+        name="Account",
+        description="The user's personal account.",
+        attrs={
+            "Name": "The name of the account.",
+            "Balance": "The current balance of the account."
+        },
         opts=get_crud_opts()
     )
 
     task_pref = TaskPreference(num_entities=2, num_opts=2, relation_difficulty=3)
 
     user = UserProfile(
-        name="小明",
-        background="音乐爱好者，喜欢根据心情播放歌曲",
+        name="Xiaoming",
+        background="A music enthusiast who enjoys playing songs based on mood.",
         task=task_pref
     )
 
