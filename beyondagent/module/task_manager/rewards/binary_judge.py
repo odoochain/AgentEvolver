@@ -68,6 +68,9 @@ Correct Completion: [0/1]
 
 ** Reminder **:
 Perform evaluation steps sequentially before generating output.
+"""
+
+USER_PROMPT_WITH_MEAN_CONSTRAINT = USER_PROMPT+"""
 Over the past period of time, the average score you gave to some samples was {running_mean:.4f}.
 Please note that the average score must be maintained around {mean_score:.4f} (+-0.2), or you will be penalized.
 """
@@ -94,6 +97,8 @@ def steps_to_msg(steps: list[dict[str, Any]]) -> str:
         trajectory_text += block.strip() + "\n\n"
     return trajectory_text
 
+
+
 @grader_manager.reg("llm-binary")
 class LlmAsJudgeBinaryRewardCalculator(RewardCalculator):
     """
@@ -104,13 +109,14 @@ class LlmAsJudgeBinaryRewardCalculator(RewardCalculator):
     _running_judge_mean_slow = 0.5  # 初始化为默认值
     
     _alpha_fast=0.9
-    _alpha_slow=0.99
+    _alpha_slow=0.95
     _update_lock = threading.Lock()  # 锁也需要作为类变量共享
 
-    def __init__(self, task: Task, model_name='qwq-plus'):
+    def __init__(self, task: Task, model_name='qwq-plus', use_mean_constraint=True):
         super().__init__(task)
 
         self._client = DashScopeClient(model_name=model_name)
+        self._use_mean_constraint = use_mean_constraint
 
     @classmethod
     def update_running_mean(cls, new_score: float):
@@ -145,16 +151,23 @@ class LlmAsJudgeBinaryRewardCalculator(RewardCalculator):
         assert len(trajectory.steps) >= 2 and trajectory.steps[1]['role'] == 'user', "trajectory must start with system message and then user message"
         task_query = trajectory.steps[1]['content']
         
-        # TODO 至少现在我们的合成任务 gt 一定不是空的
-        assert self.task.ground_truth is not None, "ground truth must not be None for synthetic task"
-        messages.append({
-            "role": "user",
-            "content": USER_PROMPT.format(
+        if self._use_mean_constraint:
+            content=USER_PROMPT_WITH_MEAN_CONSTRAINT.format(
                 task=task_query, 
                 trajs=steps_to_msg(trajectory.steps[2:]),
                 running_mean=self.get_running_mean(),
                 mean_score=self.get_stable_mean(),
-                )
+            )
+        else:
+            content=USER_PROMPT.format(
+                task=task_query, 
+                trajs=steps_to_msg(trajectory.steps[2:]),
+            )
+        
+        messages.append(
+            {
+                "role": "user",
+                "content": content
             }
         )
         return messages
@@ -207,3 +220,8 @@ class LlmAsJudgeBinaryRewardCalculator(RewardCalculator):
             return score
         else:
             return score, response
+
+@grader_manager.reg("llm-binary-no_constraint")
+class LlmAsJudgeBinaryRewardCalculatorNoConstraint(LlmAsJudgeBinaryRewardCalculator):
+    def __init__(self, task: Task, model_name='qwq-plus'):
+        super().__init__(task, model_name, use_mean_constraint=False)
