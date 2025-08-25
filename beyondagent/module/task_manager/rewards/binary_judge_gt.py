@@ -10,67 +10,83 @@ from beyondagent.schema.trajectory import Trajectory
 
 from . import grader_manager
 
-USER_PROMPT = """
-### Role Description
-You are an expert AI agent evaluator. Your task is to assess an agent's performance based on its action trajectory and the original user request. Apply strict binary scoring (0/1) for each dimension without partial credits.
+USER_PROMPT = """### Role
+You are an expert AI agent evaluator. Your job is to judge an agent's performance using the following inputs:
 
-### Input Analysis
-You will receive two inputs:
-1. User Task: The original objective the agent should accomplish
-2. Agent Trajectory: Sequential record of actions, decisions, and outputs during task execution
+1) **User Task** — what the agent was supposed to accomplish.  
+2) **Reference Solution** — a correct approach/outcome to compare against (other valid solutions may exist).  
+3) **Agent Trajectory** — chronological steps the agent took, including actions, decisions, and outputs.
 
-### Evaluation Procedure
-Follow these steps sequentially:
+### Ground Rules
+- Base your judgment strictly on the provided trajectory. Do **not** invent missing steps or assumptions.
+- Treat the Reference Solution as an oracle for correctness checks and efficiency comparison, while allowing alternative correct methods.
+- When citing issues, reference concrete steps or observations from the trajectory.
+- Be deterministic: follow the procedure below and the scoring constraints exactly.
+- “Infinite or runaway repetition” means the agent repeats essentially the same step/loop ≥3 times with no new information or progress.
 
-#### Step 1: Critical Failure Check
-Immediately score both dimensions 0 if ANY of these occur:
-- All content is totally gibberish/unreadable
-- Enters infinite loop or identical step repetition
-- Completely irrelevant to user task
-- Fails to produce any actionable output
+---
 
-#### Step 2: Task Intent Comprehension (Score 0 or 1)
-- Score 1 ONLY if: 
-  Agent accurately identifies core objective
-  Initial actions align with task purpose
-- Score 0 if:
-  Misinterprets fundamental task purpose
-  Shows contradictory understanding
+## Evaluation Procedure
 
-#### Step 3: Task Correct Completion (Score 0 or 1)
-Score 1 ONLY if ALL conditions are met:
-- Step is logically valid and necessary. (Error is allowed in intermediate steps)
-- Zero hallucinated information. (For example, fabricated information, misinterpreted fields are hallucinated.)
-- Final output resolves user's request, or user's request is unrealistic and best effort is done (Check this by your own knowledge). 
-Score 0 if ANY condition fails
+**Step 1 — Relevance Gate (0 or proceed)**  
+- Determine if the trajectory's steps are **materially related** to the User Task.  
+- If the approach is wholly unrelated → **score = 0** and stop.  
+- Otherwise, continue.
 
-To evaluate the steps, we provide you with a reference solution to compare against. Please note that this solution demonstrates a correct approach and outcome, but it may not be the *only* correct way to solve the task. A different but equally valid solution should also be considered successful.
+**Step 2 — Repetition Penalty Gate**  
+- Check for infinite/runaway repetition of identical or near-identical steps.  
+  - If such repetition exists:  
+    - If steps are otherwise relevant → **final score must be ≤ 20**.  
+    - If steps are irrelevant → **score = 0**.  
+- If no infinite repetition, continue.
 
-{reference_trajs}
+**Step 3 — Goal Achievement (Critical Binary Check)**  
+- Examine **all** steps and the final result to decide if the task is actually completed **correctly**.  
+- **Compare** both the final answer **and** the solution path against the Reference Solution to validate correctness.  
+- Do not be misled by confident language—verify substance.
 
-### Mandatory Constraints
-- Never combine scores or calculate totals
-- Critical failure overrides all other checks
-- Scores are independent (e.g., may score 1,0)
+**Step 4 — Additional Deductions (respect the above ranges)**
+- **Code Execution Errors:** Deduct for crashes, runtime errors, failed tool calls, or obvious bugs.  
+- **Efficiency & Conciseness vs. Reference:** If the trajectory is significantly more roundabout, redundant, or cluttered than the reference approach, deduct accordingly—even if correct. Unnecessary/irrelevant steps count here.
 
-### Output
-**Strictly follow this sequence:**
-1. Perform Step 1, Step 2, Step 3 evaluations in order
-2. Generate analysis covering all evaluation steps
-3. Finaly output the evaluation result with the following FORMAT:
-Reason: [Reason for score]
-Critical Failure: [Yes/No]  
-Intent Comprehension: [0/1]
-Correct Completion: [0/1]
+---
 
-** User Task **:
+## Scoring Guidelines (choose a range, then adjust within it)
+**If goal achieved (must be 60-100):**
+- **90-100:** Exceptional — clean, efficient, equal/better than reference; no significant issues.  
+- **80-89:** Strong — correct with minor inefficiencies or small issues vs. the reference.
+- **70-79:** Good — correct but notably less efficient or with several unnecessary steps.  
+- **60-69:** Adequate — correct yet with significant problems in efficiency, clarity, or execution quality.
+
+**If goal not achieved (must be 0-40):**
+- **30-40:** Poor — incorrect but generally relevant with partial progress aligned to the reference path.  
+- **10-29:** Very poor — incorrect with major execution issues; only weak alignment to a correct path.  
+- **1-9:** Minimal relevant attempt — incorrect with severe problems, but some faint relevance.  
+- **0:** Complete failure — irrelevant approach **or** infinite repetition of irrelevant steps.
+
+> Note on Step 2 cap: If infinite/runaway repetition is detected and steps are otherwise relevant, the **maximum** final score is **20** (within the 0-40 band).
+
+---
+
+## Output Format
+First, provide a **detailed reasoning analysis** that references specific steps/observations and compares against the Reference Solution (including efficiency notes and any code/error findings).  
+Then output a single integer score (either **0-40** or **60-100**, never 41-59) wrapped in tags:
+
+<reward>75</reward>
+
+---
+
+** User Task **
 {task}
 
-** Agent Trajectory (STEP-ACTION-OBSERVATION) **:
+** Reference Solution **
+{reference_trajs}
+
+** Agent Trajectory (STEP-ACTION-OBSERVATION) **
 {trajs}
 
-** Reminder **:
-Perform evaluation steps sequentially before generating output.
+
+---
 """
 
 USER_PROMPT_WITH_MEAN_CONSTRAINT=USER_PROMPT+"""
@@ -117,6 +133,7 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
         super().__init__(task)
         
         self._client = DashScopeClient(model_name=model_name)
+        self._client.max_tokens=32768
         self._use_mean_constraint = use_mean_constraint
 
     @classmethod
@@ -178,7 +195,6 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
 
     def calculate_reward(self, trajectory: Trajectory, env: EnvClient, instance_id: str) -> GraderResult:
         x,res = cast(tuple[float,str], self._calculate_reward(trajectory, env, eject_llm_output=True))
-        x=min(0.8,max(0.2,x))
         return {
             "score": x,
             "reason": res
@@ -192,41 +208,26 @@ class LlmAsJudgeBinaryRewardCalculatorWithGT(RewardCalculator):
             trajectory (Trajectory): trajectory to calculate reward
             env (EnvClient): environment where the trajectory is executed
         """
-        response = ""
-        for chunk in self._client.chat_stream_with_retry(messages=self.pack_message(trajectory), max_retries=64):
+        response=""
+        for chunk in self._client.chat_stream_with_retry(messages=self.pack_message(trajectory),max_retries=64):
             response += chunk
-        
-        # 默认分数
-        score: float = 0.0
-
         if response:
-            try:
-                # 解析结果，兼容大小写与多余空格
-                cf_match = re.search(r"Critical\s*Failure\s*:\s*(Yes|No)\b", response, re.IGNORECASE)
-                intent_match = re.search(r"Intent\s*Comprehension\s*:\s*([01])\b", response, re.IGNORECASE)
-                correct_match = re.search(r"Correct\s*Completion\s*:\s*([01])\b", response, re.IGNORECASE)
-
-                critical = bool(cf_match and cf_match.group(1).strip().lower().startswith("y"))
-                intent_score = int(intent_match.group(1)) if intent_match else 0
-                correct_score = int(correct_match.group(1)) if correct_match else 0
-
-                if critical:
-                    score = 0.0
-                else:
-                    score = 0.2 * intent_score + 0.8 * correct_score
-                    score = correct_score
-            except Exception as e:
-                logger.exception(f"Failed to parse LLM judge response: {e}. Raw response: {response!r}")
-                score = 0.0
+            import re
+            reward_match = re.search(r'<reward>([\d\.]+)</reward>', response.strip())
+            if reward_match:
+                score = float(reward_match.group(1))
+                score = max(0.0, min(100.0, score))/100.0
+            else:
+                print(f"Could not parse score from response: {response}")
+                score=0.0
         else:
-            logger.warning("Empty LLM judge response; setting score=0.0")
+            print("No response from evaluation API")
+            score=0.0
         
-        self.update_running_mean(score)
-
         if not eject_llm_output:
             return score
         else:
-            return score, response
+            return score,response
 
 @grader_manager.reg("llm-binary-gt-no_constraint")
 class LlmAsJudgeBinaryRewardCalculatorWithGTNoConstraint(LlmAsJudgeBinaryRewardCalculatorWithGT):

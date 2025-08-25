@@ -173,7 +173,6 @@ class LlmAsJudgeBinaryRewardCalculator(RewardCalculator):
 
     def calculate_reward(self, trajectory: Trajectory, env: EnvClient, instance_id: str) -> GraderResult:
         x,res = cast(tuple[float,str], self._calculate_reward(trajectory, env, eject_llm_output=True))
-        x=min(0.8,max(0.2,x))
         return {
             "score": x,
             "reason": res
