@@ -15,6 +15,7 @@ from typing import List, Tuple, Dict, Optional, Literal
 import threading
 from dataclasses import dataclass, asdict
 import random
+from beyondagent.module.advantage_assignment.prompt import build_batch_adv_evaluation_prompt, build_batch_reward_evaluation_prompt
 
 __all__ = [
     "evaluate_step_flags_parallel",
@@ -29,7 +30,7 @@ class EvaluationTask:
     query: str
     rollout: str
     steps: List[Dict[str, str]]  # ← 原来是 List[str]，统一为 parse_rollout_to_steps 的结构
-    overall_adv: float
+    overall_score: float
 
 @dataclass
 class EvaluationResult:
@@ -45,7 +46,7 @@ class EvaluationRecord:
     query: str
     rollout: str
     steps: List[str]
-    overall_adv: float
+    overall_score: float
     llm_input_messages: List[Dict]
     llm_raw_output: str
     llm_parsed_results: List[bool]  # 所有steps的解析结果
@@ -101,139 +102,7 @@ def _steps_struct_to_text_list(steps: List[Dict[str, str]]) -> List[str]:
 #         i += 2
 #     return steps
 
-def build_batch_evaluation_prompt(
-        query: str,
-        steps: list[dict],
-        overall_adv: float,
-        max_step_chars: int = 2000,
-) -> list[dict]:
-    polarity = "positive" if overall_adv > 0 else "negative"
-    # prompt3
-    # sys_msg = (
-    #     "You are an expert *process* reward evaluator.\n\n"
-    #     "Input has three sections:\n"
-    #     "1) OVERALL ADVANTAGE – scalar for final answer quality\n"
-    #     "2) TASK DESCRIPTION  – the user's original request\n"
-    #     "3) SOLUTION TRAJECTORY – numbered steps (ACTION, optional OBSERVATION)\n\n"
-    #     "Rules:\n"
-    #     "• If OVERALL ADVANTAGE > 0 → GOOD only if the ACTION makes the answer better; else BAD.\n"
-    #     "• If OVERALL ADVANTAGE < 0 → DEFAULT = BAD. Mark GOOD ONLY IF ALL hold:\n"
-    #     "   (A) The step explicitly DIAGNOSES a prior error/assumption, AND\n"
-    #     "   (B) The ACTION implements a concrete FIX redirecting toward the correct goal, AND\n"
-    #     "   (C) The OBSERVATION shows EVIDENCE the fix worked (e.g., auth succeeds, correct list, error disappears).\n"
-    #     "   If any of A/B/C missing → BAD. \"Reasonable attempts\" without diagnosis+evidence → BAD.\n\n"
-    #     "Always BAD when advantage < 0:\n"
-    #     "• Continuing the wrong plan, or finalising/submitting a wrong result\n"
-    #     "• Repeating the same failure class without new diagnosis/redirect\n"
-    #     "• Using unsupported/unspecified interfaces/params, or acting on unverified assumptions\n"
-    #     "• Performing irreversible ops (delete/overwrite/complete) without validating preconditions\n\n"
-    #     "Output requirement (strict): For every step you mark GOOD when advantage < 0, your Step Analysis MUST include a line starting with:\n"
-    #     "  Evidence: \"<verbatim snippet from this step's OBSERVATION>\"\n"
-    #     "If you cannot quote such evidence from this step's OBSERVATION, mark BAD.\n\n"
-    #     "Judge strictly by whether each ACTION reduces the gap to correctly solving the ORIGINAL task.\n"
-    #     "Reply ONLY in the required output format."
-    # )
-    
-    # prompt1
-    sys_msg = """You are an expert *process* reward evaluator.
 
-The single message you receive always contains three labelled sections:
-  1. OVERALL ADVANTAGE – a scalar summarising the final answer quality.
-  2. TASK DESCRIPTION   – the user’s original request.
-  3. SOLUTION TRAJECTORY – a numbered list of assistant steps.
-
-Evaluation rule:
-• If OVERALL ADVANTAGE is **positive (> 0)**, judge each step by whether its ACTION
-  makes the overall answer *even better* than before (incremental improvement).
-• If OVERALL ADVANTAGE is **negative (< 0)**, judge each step by whether it *actively
-  corrects the existing error*. Mark GOOD **only** when the ACTION clearly fixes or
-  moves the answer towards correctness; otherwise mark BAD.
-
-Ignore superficial politeness or formatting. Focus strictly on the technical impact
-of the ACTION (and OBSERVATION if present).
-
-Reply IN THE REQUIRED OUTPUT FORMAT and output nothing else."""
-    
-    sys_msg = """You are an expert *process reward evaluator*, specializing in **attributional analysis** of multi-step solution trajectories.
-
-**INPUT STRUCTURE:** The single message you receive always contains three labelled sections:
-  1.  **TASK DESCRIPTION**   – The user's original request.
-  2.  **SOLUTION TRAJECTORY** – A strictly numbered list of assistant steps. Each step describes an `ACTION` taken (and optionally an `OBSERVATION`).
-  3.  **OVERALL PERFORMANCE SCORE** – A scalar value (integer or float) summarising the final answer quality relative to the task. **>0** indicates the overall outcome was **advantageous** (successful/helpful). **<0** indicates the overall outcome was **disadvantageous** (unsuccessful/unhelpful).
-
-**YOUR TASK (ATTRIBUTIONAL ANALYSIS):** Analyze the `SOLUTION TRAJECTORY` and **attribute the contribution of each numbered step** to the final `OVERALL PERFORMANCE SCORE`. 
-
-**EVALUATION RULES (By Score Sign):**
-
-*   **If OVERALL PERFORMANCE SCORE is POSITIVE (> 0):**
-    *   An individual step is classified as **GOOD** if its `ACTION` (and its result, if `OBSERVATION` is present) **contributed positively** to achieving the final advantageous outcome. This includes:
-        *   Making a significant **incremental improvement** towards the solution.
-        *   **Correctly executing** a necessary sub-task.
-        *   **Preserving or building upon** correct prior steps.
-    *   An individual step is classified as **BAD** if its `ACTION` (or result) was **neutral, irrelevant, or detrimental** to the eventual positive outcome.
-
-*   **If OVERALL PERFORMANCE SCORE is NEGATIVE (< 0):**
-    *   An individual step is classified as **GOOD** **only** if its `ACTION` (and its result, if `OBSERVATION` is present) **actively attempted to mitigate or correct** an existing problem or error trajectory. Specifically:
-        *   **Successfully fixing** an earlier error.
-        *   **Actively moving the solution back towards correctness** after a misstep.
-        *   **Preventing a further degradation** of the situation.
-    *   An individual step is classified as **BAD** if its `ACTION` (or result) was **neutral, irrelevant, introduced a new error, or failed to correct an existing error**, thereby contributing to or failing to improve the eventual negative outcome.
-
-**FOCUS:** Ignore superficial elements (politeness, formatting). Evaluate **strictly** based on the **technical impact and causal contribution** of the step's `ACTION` (and `OBSERVATION` if present) on the final outcome, relative to the `TASK DESCRIPTION`.
-
-**OUTPUT FORMAT:** Reply IN THE REQUIRED OUTPUT FORMAT and output nothing else.
-
-"""
-    def _trim(s: str) -> str:
-        if not s: return ""
-        return s if len(s) <= max_step_chars else s[:max_step_chars] + "\n…"
-
-    user_parts = [
-        "### TASK DESCRIPTION",
-        query,
-        "",
-        f"### SOLUTION TRAJECTORY  (total {len(steps)} steps)",
-    ]
-
-    for i, st in enumerate(steps):
-        block = [
-            f">>> EVAL-STEP {i} <<<",
-            "<|ACTION|>",
-            _trim(st.get("action","")),
-            "<|END|>",
-        ]
-        obs = st.get("observation")
-        if obs:
-            block += ["<|OBSERVATION|>", _trim(obs), "<|END|>"]
-        user_parts.append("\n".join(block))
-
-    user_parts += [
-        "",
-        "---",
-        f"**OVERALL PERFORMANCE SCORE {overall_adv:+.4f} ({polarity})**",
-        "Evaluation reminder:",
-        "• Positive SCORE → Did this step IMPROVE the answer?",
-        "• Negative SCORE → DIAGNOSIS + FIX + EVIDENCE (quoted). If evidence missing → BAD.",
-        "  (Continuing wrong plan / repeating same failure / finalising wrong result → BAD)",
-        "",
-        "REQUIRED OUTPUT FORMAT:",
-        "Step 0 Analysis: <your reasoning>",
-        "Step 0 Judgment: GOOD/BAD",
-        "",
-        "Step 1 Analysis: <your reasoning>",
-        "Step 1 Judgment: GOOD/BAD",
-        "",
-        "[…continue for all steps…]",
-    ]
-
-    return [
-        {"role": "system", "content": sys_msg},
-        {"role": "user", "content": "\n".join(user_parts)},
-    ]
-
-# def build_batch_evaluation_prompt_from_rollout(query: str, rollout: str, overall_adv: float, max_step_chars: int = 2000):
-#     steps = parse_rollout_to_steps(rollout)
-#     return build_batch_evaluation_prompt(query, steps, overall_adv, max_step_chars)
 
 def parse_batch_evaluation_result(response: str, num_steps: int):
     numbered = {}
@@ -413,6 +282,7 @@ async def _evaluate_single_sample_api(
     model_name: str,
     task: EvaluationTask,
     semaphore: asyncio.Semaphore,
+    overall_score_source: str = "advantages", 
     max_retries: int = 200,
     save_dir: Optional[str] = None,
     global_step: Optional[int] = None,
@@ -425,12 +295,14 @@ async def _evaluate_single_sample_api(
         # 1) 构造批量评估 prompt
         # shuchang: 0809
         # FIXME: 这里组织prompt改为直接用 steps 结构
-        # messages = build_batch_evaluation_prompt_from_rollout(
-        #     task.query, task.rollout, task.overall_adv
-        # )
-        messages = build_batch_evaluation_prompt(
-            task.query, task.steps, task.overall_adv
-        )
+        if overall_score_source == "token_level_rewards":
+            messages = build_batch_reward_evaluation_prompt(
+                task.query, task.steps, task.overall_score
+            )
+        elif overall_score_source == "advantages":
+            messages = build_batch_adv_evaluation_prompt(
+                task.query, task.steps, task.overall_score
+            )
         # 2) 调用 LLM
         llm_raw_output = await _async_safe_query(
             client, model_name, messages, semaphore, max_retries
@@ -451,7 +323,7 @@ async def _evaluate_single_sample_api(
                 f"[API] ❌ Sample {task.sample_idx}: Parse error, "
                 f"disable rescale: {parse_error}"
             )
-            uniform_flag = task.overall_adv > 0  # True=GOOD, False=BAD
+            uniform_flag = task.overall_score > 0  # True=GOOD, False=BAD
             step_results = [uniform_flag for _ in task.steps]
 
         response_time = time.time() - start_time
@@ -468,7 +340,7 @@ async def _evaluate_single_sample_api(
                 query=task.query,
                 rollout=task.rollout,
                 steps=_steps_struct_to_text_list(task.steps),  # ← 关键
-                overall_adv=task.overall_adv,
+                overall_score=task.overall_score,
                 llm_input_messages=messages,
                 llm_raw_output=llm_raw_output,
                 llm_parsed_results=step_results,
@@ -492,7 +364,7 @@ async def _evaluate_single_sample_api(
         response_time = time.time() - start_time
         print(f"[parallel_eval] ❌ FAILED to evaluate sample {task.sample_idx}: {e}")
 
-        uniform_flag = task.overall_adv > 0
+        uniform_flag = task.overall_score > 0
         step_results = [uniform_flag for _ in task.steps]
 
         if save_dir:
@@ -501,7 +373,7 @@ async def _evaluate_single_sample_api(
                 query=task.query,
                 rollout=task.rollout,
                 steps=task.steps,
-                overall_adv=task.overall_adv,
+                overall_score=task.overall_score,
                 llm_input_messages=[],
                 llm_raw_output=f"ERROR: {str(e)}",
                 llm_parsed_results=step_results,
@@ -524,8 +396,10 @@ async def _evaluate_single_sample_api(
 # 统一的并行评估接口
 # ————————————————————————————————————————————————————————————————
 
-async def evaluate_step_flags_parallel(tokenizer, batch, model_name: str = "qwen-max", evaluation_type: Literal["api"] = "api", max_concurrent: int = 20, batch_size_limit: int = 100, mask_tensor: torch.Tensor = None, api_max_retries: int = 200, save_dir: Optional[str] = None, global_step: Optional[int] = None, epoch: Optional[str] = None) -> Tuple[List[List[bool]], Dict]:
-    """并行评估step flags，每个sample一次API调用评估所有steps"""
+async def evaluate_step_flags_parallel(tokenizer, batch, overall_score_source: str = "advantages",  model_name: str = "qwen-max", evaluation_type: Literal["api"] = "api", max_concurrent: int = 20, batch_size_limit: int = 100, mask_tensor: torch.Tensor = None, api_max_retries: int = 200, save_dir: Optional[str] = None, global_step: Optional[int] = None, epoch: Optional[str] = None) -> Tuple[List[List[bool]], Dict]:
+    """并行评估step flags，每个sample一次API调用评估所有steps
+    NOTE: SSA中根据advantage评估 和 PRM-GRPO中根据ORM评估均可使用本函数
+    """
     batch_size = len(batch.batch['prompts'])
     print(f"[parallel_eval] Starting parallel evaluation for {batch_size} samples using API mode")
     print(f"[parallel_eval] 🚀 OPTIMIZED: One API call per sample (not per step)")
@@ -580,12 +454,17 @@ async def evaluate_step_flags_parallel(tokenizer, batch, model_name: str = "qwen
         # steps_struct = parse_rollout_to_steps(rollout)
         steps_struct = batch.non_tensor_batch["steps"][sample_idx]
 
-        # mask 与 overall_adv 维持原逻辑
+        # mask 与 overall_score 维持原逻辑
         sample_mask = response_mask[sample_idx]
-        overall_adv = _get_overall_advantage(batch.batch["advantages"][sample_idx], sample_mask)
+        if overall_score_source == "token_level_rewards":
+            # PRM-GRPO 模式：使用原始 ORM 奖励
+            overall_score = batch.batch["token_level_rewards"][sample_idx].sum().item()
+        elif overall_score_source == "advantages":
+            # SSA 模式：使用计算后的 advantage
+            overall_score = _get_overall_advantage(batch.batch["advantages"][sample_idx], sample_mask)
 
-        if abs(overall_adv) < 1e-8:
-            print(f"[parallel_eval] Sample {sample_idx}: advantage≈0 ({overall_adv:.6f}), skipping evaluation, returning all GOOD")
+        if abs(overall_score) < 1e-8:
+            print(f"[parallel_eval] Sample {sample_idx}: advantage≈0 ({overall_score:.6f}), skipping evaluation, returning all GOOD")
             flags_per_sample[sample_idx] = [True] * len(steps_struct)
 
             if save_dir:
@@ -595,7 +474,7 @@ async def evaluate_step_flags_parallel(tokenizer, batch, model_name: str = "qwen
                     rollout=rollout,
                     # ✅ 日志里仍按原来的 List[str] 存
                     steps=_steps_struct_to_text_list(steps_struct),
-                    overall_adv=overall_adv,
+                    overall_score=overall_score,
                     llm_input_messages=[],
                     llm_raw_output="SKIPPED_ZERO_ADVANTAGE",
                     llm_parsed_results=[True] * len(steps_struct),
@@ -617,7 +496,7 @@ async def evaluate_step_flags_parallel(tokenizer, batch, model_name: str = "qwen
             query=query,
             rollout=rollout,
             steps=steps_struct,
-            overall_adv=overall_adv
+            overall_score=overall_score
         )
         all_tasks.append(task)
     
@@ -660,10 +539,9 @@ async def evaluate_step_flags_parallel(tokenizer, batch, model_name: str = "qwen
             
             # 每个task调用_evaluate_single_sample_api，一次性评估整个sample的所有steps
             coroutines = [
-                _evaluate_single_sample_api(api_client, model_name, task, semaphore, api_max_retries, save_dir, global_step, epoch)
+                _evaluate_single_sample_api(api_client, model_name, task, semaphore, overall_score_source, api_max_retries, save_dir, global_step, epoch)
                 for task in batch_tasks
             ]
-            
             batch_results = await asyncio.gather(*coroutines, return_exceptions=True)
             
             for result in batch_results:
@@ -887,7 +765,7 @@ class ParallelSemanticProcessor:
         print(f"[ParallelSemanticProcessor] 🚀 Initialized with OPTIMIZED evaluation (one API call per sample)")
         print(f"[ParallelSemanticProcessor] Settings: model={model_name}, concurrent={self.max_concurrent}, batch_limit={self.batch_size_limit}, api_retries={self.api_max_retries}")
         
-    async def process_batch(self, tokenizer, batch, consistent_scale: float = 1.0, pos_unconsistent_scale: float = 0.2, neg_unconsistent_scale: float = -0.2, mask_tensor: torch.Tensor = None, save_dir: Optional[str] = None, global_step: Optional[int] = None, epoch: Optional[str] = None) -> Dict:
+    async def process_batch(self, tokenizer, batch, overall_score_source: str = "advantages", consistent_scale: float = 1.0, pos_unconsistent_scale: float = 0.2, neg_unconsistent_scale: float = -0.2, mask_tensor: torch.Tensor = None, save_dir: Optional[str] = None, global_step: Optional[int] = None, epoch: Optional[str] = None) -> Dict:
         """处理整个batch的语义评估和mask应用"""
         start_time = time.time()
         
@@ -899,6 +777,7 @@ class ParallelSemanticProcessor:
         step_flags, eval_stats = await evaluate_step_flags_parallel(
             tokenizer=tokenizer,
             batch=batch,
+            overall_score_source=overall_score_source,
             model_name=self.model_name,
             evaluation_type=self.evaluation_type,
             max_concurrent=self.max_concurrent,
@@ -966,54 +845,3 @@ class ParallelSemanticProcessor:
             self.process_batch(tokenizer, batch, mask_tensor=mask_tensor, 
                              save_dir=save_dir, global_step=global_step, epoch=epoch, **kwargs)
         )
-
-# ————————————————————————————————————————————————————————————————
-# 同步包装函数
-# ————————————————————————————————————————————————————————————————
-
-def evaluate_step_flags(tokenizer, batch, good_words: tuple[str, ...] = ("GOOD",), bad_words: tuple[str, ...] = ("BAD",), model_name: str = "qwen-max", evaluation_type: Literal["api"] = "api", use_parallel: bool = True, max_concurrent: int = 20, mask_tensor: torch.Tensor = None, api_max_retries: int = 200, save_dir: Optional[str] = None, global_step: Optional[int] = None, epoch: Optional[str] = None) -> List[List[bool]]:
-    """兼容性包装函数，只支持并行API评估"""
-    if not use_parallel:
-        raise ValueError("❌ Only parallel evaluation is supported")
-    if evaluation_type != "api":
-        raise ValueError(f"❌ Only 'api' evaluation_type is supported, got: {evaluation_type}")
-    
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    flags, stats = loop.run_until_complete(
-        evaluate_step_flags_parallel(
-            tokenizer=tokenizer,
-            batch=batch,
-            model_name=model_name,
-            evaluation_type=evaluation_type,
-            max_concurrent=max_concurrent,
-            mask_tensor=mask_tensor,
-            api_max_retries=api_max_retries,
-            save_dir=save_dir,
-            global_step=global_step,
-            epoch=epoch
-        )
-    )
-    
-    print(f"[evaluate_step_flags] ✅ Parallel execution completed with {stats.get('efficiency_gain', 1.0):.1f}x efficiency gain!")
-    return flags
-
-def apply_step_mask(batch, step_flags: List[List[bool]], consistent_scale: float = 1.0, pos_unconsistent_scale: float = 0.2, neg_unconsistent_scale: float = -0.2, use_vectorized: bool = True, mask_tensor: torch.Tensor = None):
-    """兼容性包装函数，只支持向量化版本"""
-    if not use_vectorized:
-        raise ValueError("❌ Only vectorized version is supported")
-    
-    stats = apply_step_mask_vectorized(
-        tokenizer=tokenizer,
-        batch=batch,
-        step_flags=step_flags,
-        consistent_scale=consistent_scale,
-        pos_unconsistent_scale=pos_unconsistent_scale,
-        neg_unconsistent_scale=neg_unconsistent_scale,
-        mask_tensor=mask_tensor
-    )
-    return stats

@@ -51,9 +51,7 @@ from beyondagent.schema.task import Task
 from beyondagent.schema.trajectory import Trajectory
 from beyondagent.utils.plot_entropy import log_token_entropy
 from beyondagent.module.advantage_assignment.token_level_assignment import _add_entropy_mask as _add_advantage_mask
-from beyondagent.module.advantage_assignment.semantic_level_assignment import (
-    evaluate_step_flags, apply_step_mask
-)
+
 from beyondagent.utils.advantage_structure_checker import (
     debug_advantage_structure, 
     validate_grpo_advantage_structure
@@ -737,16 +735,12 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             flags, stats = evaluate_step_flags_parallel(
                                 tokenizer=self.tokenizer,
                                 batch=batch,
+                                overall_score_source="token_level_rewards",  # PRM-GRPO 使用 ORM
                                 mask_tensor=batch.batch["response_mask"],
                                 save_dir=getattr(self.config.trainer, 'llm_evaluation_log_dir', None),
                                 global_step=self.global_steps,
                                 epoch=f"train.{epoch}.{i}",
                             )
-                            
-
-                            # 注意：上面一行为了最小改动直接复用了 process_batch_sync；
-                            # 如果你希望避免任何优势上的改写，可直接：
-                            # flags, _ = evaluate_step_flags_parallel(...)
 
                             # === (C) PRM → GRPO 后缀和 ===
                             from beyondagent.module.advantage_assignment.prm_grpo import (
@@ -768,21 +762,6 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             # 写回 advantages，供后续 actor/critic 更新
                             batch.batch["advantages"] = out["advantages"]
                         # ============= End PRM GRPO =============
-                        # # ===========  0714 shuchang: add semantic mask  =========== 
-                        # print("^^^^^^^^^^^^^^^^^ start evaluate_step_flags")
-                        # step_flags = evaluate_step_flags(
-                        #     tokenizer  = self.tokenizer,
-                        #     batch      = batch,
-                        # )     # list[list[bool]]
-                        # print("^^^^^^^^^^^^^^^^^ end evaluate_step_flags", f"shape: {len(step_flags)} samples")
-                        # apply_step_mask(
-                        #     batch        = batch,
-                        #     step_flags   = step_flags,
-                        #     consistent_scale   = semantic_config.consistent_scale,
-                        #     pos_unconsistent_scale    = semantic_config.pos_unconsistent_scale,
-                        #     neg_unconsistent_scale = semantic_config.neg_unconsistent_scale,
-                        # )                  # breakpoint()
-                        # print("$$$$$$$$$$$$$$$$$$$$ ")
                         
                         # # ===========  0804 shuchang: add semantic mask  =========== 
                         # prompts    = self.tokenizer.batch_decode(batch.batch["prompts"],    skip_special_tokens=True)
