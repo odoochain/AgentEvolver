@@ -74,7 +74,13 @@ semantic_advantage:
     level: "batch"       # "batch" 或 "group"
     group_size: null     # group模式下可覆盖默认repeat大小
     norm_style: "nostd"
-  enable_prm_grpo: false
+  prm_grpo:
+    enable_prm_grpo: false
+    prm_scheme: allocation_c           # fix | allocation | allocation_c | decouple
+    do_batch_zscore: true
+    traj_equal_zscore: true
+    fix_base: 0.2
+
 
 trainer:
   llm_evaluation_log_dir: null  # 设置为具体路径来启用，例如："/path/to/llm_evaluation_logs"

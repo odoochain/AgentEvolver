@@ -708,7 +708,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                         # NOTE: PRM-GRPO 先得到 PRM 的 step-reward，再按 DeepSeek-Math 的 GRPO 公式算 token 的 advantage
                         # ==================== Begin PRM GRPO  ====================
                         sem_cfg = self._get_semantic_config()
-                        enable_prm_grpo = getattr(sem_cfg, "enable_prm_grpo", False)
+                        enable_prm_grpo = getattr(getattr(sem_cfg, 'prm_grpo', None), 'enable_prm_grpo', getattr(sem_cfg, 'enable_prm_grpo', False))
 
                         if not enable_prm_grpo:
                             # 走原 compute_advantage 流程（保持兼容）
@@ -746,17 +746,31 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             from beyondagent.module.advantage_assignment.prm_grpo import (
                                 compute_prm_grpo_advantages, PRMHyper
                             )
+                            # 读取语义优势总配置与 PRM 子配置
+                            prm_cfg = getattr(sem_cfg, "prm_grpo", None)
+
+                            # PRM 超参（权重在 sem_cfg 顶层，zscore/fix_base 在 prm_cfg）
+                            _cons = float(getattr(sem_cfg, "consistent_scale", 1.0))
+                            _posu = float(getattr(sem_cfg, "pos_unconsistent_scale", 0.2))
+                            _negu = float(getattr(sem_cfg, "neg_unconsistent_scale", 0.2))
+                            _negu = abs(_negu)
+
                             hyper = PRMHyper(
-                                consistent_scale=getattr(sem_cfg, "consistent_scale", 1.0),
-                                pos_unconsistent_scale =getattr(sem_cfg, "pos_unconsistent_scale", 0.2),
-                                neg_unconsistent_scale =getattr(sem_cfg, "neg_unconsistent_scale", 0.2),
+                                consistent_scale=_cons,
+                                pos_unconsistent_scale=_posu,
+                                neg_unconsistent_scale=_negu,
+                                do_batch_zscore=bool(getattr(prm_cfg, "do_batch_zscore", True)),
+                                traj_equal_zscore=bool(getattr(prm_cfg, "traj_equal_zscore", True)),
+                                fix_base=float(getattr(prm_cfg, "fix_base", 0.2)),
                             )
 
+                            scheme = getattr(prm_cfg, "prm_scheme", "allocation_c")
+
                             out = compute_prm_grpo_advantages(
-                                batch        = batch,
-                                step_flags   = flags if isinstance(flags, list) else flags["llm_parsed_flags"],  # 你可按返回结构调整
-                                group_size   = self.config.actor_rollout_ref.rollout.n,
-                                hyper        = hyper,
+                                batch      = batch,
+                                step_flags = flags if isinstance(flags, list) else flags["llm_parsed_flags"],
+                                hyper      = hyper,
+                                scheme     = scheme,
                             )
 
                             # 写回 advantages，供后续 actor/critic 更新
