@@ -21,6 +21,7 @@ actor_rollout_ref:
   rollout:
     name: vllm
     mode: async
+    debug_llm_io: False
     multi_turn:
       completion_callback: beyondagent.module.trainer.simple_completion_callback.SimpleCompletionCallback
       enable: True
@@ -31,11 +32,15 @@ actor_rollout_ref:
       path: ""
       name: ""
     use_qwen3: True
+    context_template: "linear"
+    context_template_train_sp_action: False
     max_env_worker: 64
     max_model_len: 20480
     max_env_len: 4096
     enable_request_id: False
     sparse: True
+    magnify_success: False
+    train_history_infer_token: True
 
 thread_pool:
   max_workers: 5
@@ -43,6 +48,7 @@ thread_pool:
 env_service:
   env_type: "appworld"
   env_url: "http://127.0.0.1:8000"
+  env_feedin_preference: code # code, text, box
 
 task_manager:
   train_data_path: tasks_explored.train.json # tasks will be explored once if set. use it if you want to keep the same explorations.
@@ -77,7 +83,7 @@ experience_maker:
   retrieve_top_k: 3
   updated_freq: 0   # 更新经验池的频率(这里表示k个steps)
   val_summarizer_save: False
-  
+
 
 hybrid_experience_training:
   enable: False
