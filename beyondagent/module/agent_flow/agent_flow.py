@@ -15,7 +15,7 @@ from beyondagent.module.context_manager.cmt_linear import Linear_CMT, ExtendedMe
 from beyondagent.module.context_manager.cmt_linear_think import LinearThinkCMT
 from beyondagent.module.context_manager.cmt_context_clip import SelfContextClipCMT
 from beyondagent.module.agent_flow.reward_calculator import RewardCalculator
-from beyondagent.schema.trajectory import Trajectory
+from beyondagent.schema.trajectory import TrajectoryDataClass
 from typing import Any, Dict, List, Union, Optional
 import threading
 
@@ -42,12 +42,14 @@ class AgentFlow(BaseAgentFlow):
 
     def add_experience(self, init_messages, task_id, data_id, rollout_id, query, add_exp):
         if self._enable_context_generator and add_exp:
-            trajectory: Trajectory = Trajectory(data_id=data_id, rollout_id=rollout_id, steps=init_messages, query=query)
+            trajectory = TrajectoryDataClass(data_id=data_id, rollout_id=rollout_id, steps=init_messages, query=query)
             history_experience = self.em_client.call_context_generator(
                 trajectory=trajectory,
                 retrieve_top_k=self.config.experience_maker.retrieve_top_k,
                 workspace_id=self.config.experience_maker.workspace_id)
 
+            # from vsdb import bp
+            # bp('t2')
             if history_experience:
                 logger.info(f"history_experience={history_experience}")
                 formatted_experience = self.experience_template.format(history_experience)

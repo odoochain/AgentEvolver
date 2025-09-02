@@ -15,6 +15,18 @@ class Reward(BaseModel):
     def success(self) -> bool:
         return self.outcome > 0
 
+class TrajectoryDataClass(BaseModel):
+    data_id: str = Field(default="")
+    rollout_id: str = Field(default="")
+
+    steps: List[Dict[str, str]] = Field(default_factory=list)
+    query: str = Field(default="")
+
+    is_terminated: bool = Field(default=False)
+    reward: Reward = Field(default_factory=Reward)
+
+    metadata: dict = Field(default_factory=dict)
+
 class Trajectory(object):
     data_id: str = ""
     rollout_id: str = ""

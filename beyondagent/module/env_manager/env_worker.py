@@ -53,6 +53,8 @@ class EnvWorker(object):
             if self.task.query is not None:
                 assert state_message[-1]["role"] == "user", "the latest message from environment must be user query"
                 state_message[-1]["content"] = self.task.query
+            else:
+                self.task.query = state_message[-1]["content"]
 
             if self.config.actor_rollout_ref.rollout.context_template == "linear":
                 traj_cmt: Linear_CMT = Linear_CMT(self.config, self.tokenizer)

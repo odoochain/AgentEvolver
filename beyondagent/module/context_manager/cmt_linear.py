@@ -447,6 +447,8 @@ class Linear_CMT(Trajectory, ContextManagerBase):
             else:
                 return "", input_string
 
+        # from vsdb import bp
+        # bp('t1')
         # ANNI experience extraction and discard
         if self.task_train_exp_mode == "discard":
             self.experience_template = self.config.hybrid_experience_training.experience_template
