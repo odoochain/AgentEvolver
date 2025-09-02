@@ -738,7 +738,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                                 batch=batch,
                                 overall_score_source="token_level_rewards",  # PRM-GRPO 使用 ORM
                                 mask_tensor=batch.batch["response_mask"],
-                                save_dir=getattr(self.config.trainer, 'llm_evaluation_log_dir', None),
+                                save_dir=getattr(sem_cfg, 'llm_evaluation_log_dir', None),
                                 global_step=self.global_steps,
                                 epoch=f"train.{epoch}.{i}",
                             )
