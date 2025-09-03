@@ -371,25 +371,29 @@ def _build_allocation_c(
         out.append(_per_traj_scale_to_target_sum(r_norm[i], float(orm_scores[i].item()), eps=hyper.eps))
         
     return out
+import math
+from typing import List, Dict
+import torch
 
 def _build_decouple(
-    orm_full_scores: torch.Tensor,  # 完整的ORM分数
+    orm_full_scores: torch.Tensor,  # 完整的ORM分数（你也可以继续传 ±1）
     step_flags: List[List[bool]],
     step_ids: torch.Tensor,
     group_ids: torch.Tensor,
     hyper: PRMHyper
 ) -> List[List[float]]:
-    """方案4：decouple —— PRM 和 ORM 分别标准化后组合；不强制 ∑=±1。
+    """
+    方案4：decouple —— PRM 和 ORM 分别标准化后组合；不强制 ∑=±1。
     - PRM：基于 flags 构造基础奖励，做组内 z-score 标准化
-    - ORM：使用完整的 ORM 分数，做组内 z-score 标准化
+    - ORM：使用完整的 ORM 分数（或你传入的 ±1），做组内 z-score 标准化
     - 组合：alpha * normalized_prm + normalized_orm（按 orm_distribution 方式分配）
+    - 长度正则：对每条轨迹的 combined rewards 再整体除以 sqrt(K)，抑制“越长越肥”
     """
     B = step_ids.size(0)
-    device = step_ids.device
     alpha = hyper.alpha
     orm_distribution = hyper.orm_distribution
-    
-    # ---- 1. 构造基础 PRM 奖励（与 ORM 无关）----
+
+    # ---- 1) 构造基础 PRM 奖励（与 ORM 无关）----
     prm_rewards_raw: List[List[float]] = []
     for i in range(B):
         K = _num_steps_from_step_ids(step_ids[i])
@@ -397,68 +401,64 @@ def _build_decouple(
             prm_rewards_raw.append([])
             continue
         flags = _align_flags(step_flags[i] if i < len(step_flags) else [], K, is_success=True)
-        # 使用固定的 good/bad 值，不依赖 ORM
         prm_rewards = [hyper.fix_base if f else -hyper.fix_base for f in flags]
         prm_rewards_raw.append(prm_rewards)
-    
-    # ---- 2. 对 PRM 奖励做组内 z-score 标准化 ----
+
+    # ---- 2) 对 PRM 奖励做组内 z-score 标准化 ----
     prm_rewards_std = _group_zscore_on_steps(prm_rewards_raw, group_ids, hyper)
-    
-    # ---- 3. 对完整的 ORM 分数做组内标准化 ----
+
+    # ---- 3) 对 ORM 分数做组内标准化（z-score）----
     orm_scores = orm_full_scores.cpu().tolist()
-    
-    # 对 ORM 分数做组内标准化
     gids = group_ids.view(-1).tolist()
     g2idx: Dict[int, List[int]] = {}
     for i, g in enumerate(gids):
         g2idx.setdefault(int(g), []).append(i)
-    
+
     orm_scores_std = [0.0] * B
     for _, idxs in g2idx.items():
         group_orms = [orm_scores[i] for i in idxs]
-        if len(group_orms) == 0:
+        if not group_orms:
             continue
         orm_tensor = torch.tensor(group_orms, dtype=torch.float32)
         orm_mean = orm_tensor.mean()
         orm_std = orm_tensor.std(unbiased=False)
-        
         if orm_std <= hyper.eps:
-            # 标准差太小，只减均值
             for i in idxs:
                 orm_scores_std[i] = float(orm_scores[i] - orm_mean.item())
         else:
-            # 标准 z-score
+            denom = float(orm_std.item() + 1e-12)
             for i in idxs:
-                orm_scores_std[i] = float((orm_scores[i] - orm_mean.item()) / (orm_std.item() + 1e-12))
-    
-    # ---- 4. 组合标准化的 PRM 和 ORM ----
+                orm_scores_std[i] = float((orm_scores[i] - orm_mean.item()) / denom)
+
+    # ---- 4) 组合 + 5) 轨迹长度正则（除以 sqrt(K)）----
     combined_rewards: List[List[float]] = []
     for i in range(B):
         if not prm_rewards_std[i]:
             combined_rewards.append([])
             continue
-        
+
         prm_std = prm_rewards_std[i]
         orm_std = orm_scores_std[i]
-        
+        K = len(prm_std)
+        length_scale = 1.0 / math.sqrt(max(K, 1))
+
         combined = []
-        for j, prm_reward in enumerate(prm_std):
-            if orm_distribution == "last_step":
-                # ORM 只加在最后一步
-                if j == len(prm_std) - 1:
+        if orm_distribution == "last_step":
+            for j, prm_reward in enumerate(prm_std):
+                if j == K - 1:
                     combined_reward = alpha * prm_reward + orm_std
                 else:
                     combined_reward = alpha * prm_reward
-            elif orm_distribution == "all_steps":
-                # ORM 每步都加
+                combined.append(float(combined_reward * length_scale))
+        elif orm_distribution == "all_steps":
+            for prm_reward in prm_std:
                 combined_reward = alpha * prm_reward + orm_std
-            else:
-                raise ValueError(f"Unknown orm_distribution: {orm_distribution}")
-            
-            combined.append(float(combined_reward))
-        
+                combined.append(float(combined_reward * length_scale))
+        else:
+            raise ValueError(f"Unknown orm_distribution: {orm_distribution}")
+
         combined_rewards.append(combined)
-    
+
     return combined_rewards
 
 # =========================
