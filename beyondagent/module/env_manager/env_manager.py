@@ -23,20 +23,6 @@ from beyondagent.module.env_manager.env_worker import EnvWorker
 from beyondagent.module.trainer.ba_async_llm_server_manager import BaAsyncLLMServerManager
 from beyondagent.schema.task import Task
 from beyondagent.schema.trajectory import Trajectory, Sample
-from beyondagent.utils.step_parser import parse_response_ids_to_steps
-
-# def _locate_template_positions(tokens: list[int], tpl: list[int]) -> list[int]:
-#     """返回所有 tpl 在 tokens 中出现的位置索引"""
-#     pos, out = 0, []
-#     L = len(tpl)
-#     while pos <= len(tokens) - L:
-#         if tokens[pos : pos + L] == tpl:
-#             out.append(pos)
-#             pos += L
-#         else:
-#             pos += 1
-#     return out
-
 
 
 class ParallelEnvManager(object):
@@ -169,11 +155,9 @@ class ParallelEnvManager(object):
         """Convert trajectories to DataProto"""
         # Step 1: Convert trajectories to samples: tokenizing
         samples = self.trajectories_to_samples(trajectories)
-        
+
         # Step 2: Convert samples to DataProto: padding
         dataproto = self.samples_to_dataproto(samples)
-                                # list[list[str]]
-
         
         return dataproto
     

@@ -17,6 +17,7 @@
 FSDP PPO Trainer with Ray-based single controller.
 This trainer supports model-agonistic model initialization with huggingface
 """
+
 import os
 import uuid
 from collections import defaultdict
@@ -54,8 +55,11 @@ from verl.trainer.ppo.reward import compute_reward, compute_reward_async
 from verl.utils.dataset.rl_dataset import RLHFDataset
 from verl.utils.metric import reduce_metrics
 
+from beyondagent.client.llm_client import DashScopeClient
 from beyondagent.client.em_client import EMClient
 from beyondagent.module.env_manager.env_manager import ParallelEnvManager
+from beyondagent.module.task_manager import adapter as task_adapter
+from beyondagent.module.task_manager import TaskManager,NaiveTaskObjectiveRetrieval
 from beyondagent.schema.task import Task
 from beyondagent.schema.trajectory import Trajectory
 from verl.utils.tracking import ValidationGenerationsLogger
@@ -109,15 +113,110 @@ def parse_reward_from_dataproto(data: DataProto, return_dict=False) -> dict | to
     else:
         return reward_tensor
 
+
+def create_rl_sampler(data_config, dataset):
+    """Create a sampler for the dataset.
+
+    Arguments:
+        data_config: The data config.
+        dataset (Dataset): The dataset.
+
+    Returns:
+        sampler (Sampler): The sampler.
+    """
+    import torch
+    from torch.utils.data import RandomSampler, SequentialSampler
+
+    # use sampler for better ckpt resume
+    if data_config.shuffle:
+        train_dataloader_generator = torch.Generator()
+        train_dataloader_generator.manual_seed(data_config.get("seed", 1))
+        sampler = RandomSampler(data_source=dataset, generator=train_dataloader_generator)
+    else:
+        sampler = SequentialSampler(data_source=dataset)
+
+    return sampler
+
+
+
 class BeyondAgentRayPPOTrainer(RayPPOTrainer):
     """
     Note that this trainer runs on the driver process on a single CPU/GPU node.
     """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    
+    def __init__(
+        self,
+        config,
+        tokenizer,
+        role_worker_mapping: dict[Role, WorkerType],
+        resource_pool_manager: ResourcePoolManager,
+        train_task_manager:TaskManager,
+        val_task_manager:TaskManager,
+        ray_worker_group_cls: RayWorkerGroup = RayWorkerGroup, # type: ignore
+        processor=None,
+        reward_fn=None,
+        val_reward_fn=None,
+        collate_fn=None,
+        shuffle_trainset:bool=False,
+        device_name="cuda",
+    ):
+        """Initialize distributed PPO trainer with Ray backend."""
+
+        self.tokenizer = tokenizer
+        self.processor = processor
+        self.config = config
+        self.reward_fn = reward_fn
+        self.val_reward_fn = val_reward_fn
+
+        self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
+        assert self.hybrid_engine, "Currently, only support hybrid engine"
+
+        if self.hybrid_engine:
+            assert Role.ActorRollout in role_worker_mapping, f"{role_worker_mapping.keys()=}"
+
+        self.role_worker_mapping = role_worker_mapping
+        self.resource_pool_manager = resource_pool_manager
+        self.use_reference_policy = Role.RefPolicy in role_worker_mapping
+        self.use_rm = Role.RewardModel in role_worker_mapping
+        self.ray_worker_group_cls = ray_worker_group_cls
+        self.device_name = device_name
+        self.validation_generations_logger = ValidationGenerationsLogger()
+
+        # if ref_in_actor is True, the reference policy will be actor without lora applied
+        self.ref_in_actor = config.actor_rollout_ref.model.get("lora_rank", 0) > 0
+
+        # define in-reward KL control
+        # kl loss control currently not suppoorted
+        if config.algorithm.use_kl_in_reward:
+            self.kl_ctrl_in_reward = core_algos.get_kl_controller(config.algorithm.kl_ctrl)
+
+        if self.config.algorithm.adv_estimator == AdvantageEstimator.GAE:
+            self.use_critic = True
+        elif self.config.algorithm.adv_estimator in [
+            AdvantageEstimator.GRPO,
+            AdvantageEstimator.GRPO_PASSK,
+            AdvantageEstimator.REINFORCE_PLUS_PLUS,
+            AdvantageEstimator.REMAX,
+            AdvantageEstimator.RLOO,
+            AdvantageEstimator.OPO,
+            AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE,
+        ]:
+            self.use_critic = False
+        else:
+            raise NotImplementedError
+
+        self._validate_config()
+        
         self.em_client: EMClient | None = None
         self.env_manager: ParallelEnvManager | None = None
         self.thread_pool: ThreadPoolExecutor | None = None
+
+        self.train_task_manager=train_task_manager
+        self.val_task_manager=val_task_manager
+        self._collate_fn=collate_fn
+        
+        self._create_dataloader_from_manager(collate_fn, shuffle_trainset)
+        
 
     def init_workers(self):
         """Initialize distributed training workers using Ray backend.
@@ -525,18 +624,20 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
 
     def _validate(self):
         data_source_lst = []
+        add_exp_lst = []    # add experience list by ANNI
         reward_extra_infos_dict: dict[str, list] = defaultdict(list)
 
         # Lists to collect samples for the table
         sample_inputs = []
         sample_outputs = []
+        sample_experiences_dict = []    # add experience list by ANNI
         sample_scores = []
 
         for i, test_data in enumerate(self.val_dataloader):
             test_batch = DataProto.from_single_dict(test_data)
 
             # repeat test batch
-            test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n, interleave=True)
+            # test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n, interleave=True)
 
             # we only do validation on rule-based rm
             if self.config.reward_model.enable and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model":
@@ -576,8 +677,9 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                 self.async_rollout_manager.wake_up()
                 tasks = [Task(
                             task_id=test_gen_batch.non_tensor_batch["extras"][i]["task_id"], 
-                            query=test_gen_batch.non_tensor_batch["raw_prompt"][i],
+                            query=test_gen_batch.non_tensor_batch["extras"][i]['new_query'],
                             env_type=self.config.env_service.env_type
+                            # evaluator=gen_batch.non_tensor_batch['extras'][i]['evaluator'], # avoid potential bugs
                          ) for i in range(len(test_gen_batch))]
                 print("=" * 10 + "start validate rollout" + "=" * 10)
                 trajectories = self.env_manager.rollout(tasks, mode="validate", epoch=f"test.1.{i}")
@@ -586,6 +688,13 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                 # test_output_gen_batch_padded = self.explorer_manager.rollout(test_gen_batch_padded)
                 # test_output_gen_batch_padded = self.async_rollout_manager.generate_sequences(test_gen_batch_padded)
                 self.async_rollout_manager.sleep()
+
+            ##################
+            # ANNI
+            # summary in batch: summary for experience of experience_maker, updating candidate context
+            if self.config.experience_maker.enable_summarizer and self.config.experience_maker.val_summarizer_save:
+                self.summarize_trajectories_in_batches(trajectories)
+            ##################
 
             # unpad
             # test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
@@ -602,6 +711,16 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
             output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
             sample_outputs.extend(output_texts)
 
+            ##################
+            # ANNI
+            # Store extracted experiences
+            experience_infos_dict = test_output_gen_batch.non_tensor_batch["extras"]
+            sample_experiences_dict.extend(experience_infos_dict)
+            # sample_experiences_dict:[{'add_exp':bool, 'experience':str}, ...]
+            ##################
+
+            # repeat test batch
+            test_batch = test_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n, interleave=True)
             test_batch = test_batch.union(test_output_gen_batch)
 
             # evaluate using reward_function
@@ -626,6 +745,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
             self._dump_generations(
                 inputs=sample_inputs,
                 outputs=sample_outputs,
+                experiences=sample_experiences_dict,    # add experiences by ANNI
                 scores=sample_scores,
                 reward_extra_infos_dict=reward_extra_infos_dict,
                 dump_path=val_data_dir,
@@ -635,7 +755,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
             assert len(lst) == 0 or len(lst) == len(sample_scores), f"{key_info}: {len(lst)=}, {len(sample_scores)=}"
 
         data_sources = np.concatenate(data_source_lst, axis=0)
-
+        
         data_src2var2metric2val = process_validation_metrics(data_sources, sample_inputs, reward_extra_infos_dict)
         metric_dict = {}
         for data_source, var2metric2val in data_src2var2metric2val.items():
@@ -651,15 +771,6 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                     metric_dict[pfx] = metric_val
 
         return metric_dict
-
-    def _init_credit_assigner(self):
-        raw = self._get_semantic_config()               # 原先解析 config 的方法
-        cfg = AssignmentConfig(backend=raw.evaluation_type,
-                              model=raw.model,
-                              concurrent=raw.concurrent,
-                              log_dir=pathlib.Path(self.config.trainer.llm_evaluation_log_dir))
-        self.credit_assigner = CreditAssigner(cfg)
-
 
     def fit(self):
         """
@@ -740,11 +851,39 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                         else:
                             self.async_rollout_manager.wake_up()
                             # gen_batch_output = self.explorer_manager.rollout(gen_batch)
+
+                            #############
+                            # ANNI 0814: add task-level train_sample_expmode
+                            train_sample_expmode = self.config.hybrid_experience_training.train_sample_expmode  # ["keep", "discard", "hybrid"]
+
+                            expmode_to_ratio = {
+                                "keep": 1.0,
+                                "discard": 0.0,
+                                "hybrid": self.config.hybrid_experience_training.train_sample_keepratio
+                            }
+
+                            train_sample_keepratio = expmode_to_ratio.get(train_sample_expmode)
+
+                            keep_count = int(len(gen_batch) * train_sample_keepratio)
+                            task_train_exp_modes = ['keep'] * keep_count + ['discard'] * (len(gen_batch) - keep_count)
+                            random.shuffle(task_train_exp_modes)
+                            
                             tasks = [Task(
                                         task_id=gen_batch.non_tensor_batch["extras"][i]["task_id"], 
-                                        query=gen_batch.non_tensor_batch["raw_prompt"][i],
-                                        env_type=self.config.env_service.env_type
-                                    ) for i in range(len(gen_batch))]
+                                        query=gen_batch.non_tensor_batch["extras"][i]['new_query'],
+                                        env_type=self.config.env_service.env_type,
+                                        evaluator=gen_batch.non_tensor_batch['extras'][i]['evaluator'],
+                                        metadata={"task_train_exp_mode": mode}
+                                    ) for i, mode in enumerate(task_train_exp_modes)
+                            ]
+
+                            # tasks = [Task(
+                            #             task_id=gen_batch.non_tensor_batch["extras"][i]["task_id"], 
+                            #             query=gen_batch.non_tensor_batch["extras"][i]['new_query'],
+                            #             env_type=self.config.env_service.env_type,
+                            #             evaluator=gen_batch.non_tensor_batch['extras'][i]['evaluator'],
+                            #         ) for i in range(len(gen_batch))]
+                            #############
 
                             # TODO enable tracing by jinli 0619
                             print("=" * 10 + "start fit rollout" + "=" * 10)
@@ -755,9 +894,9 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             context_time_cost = [x.metadata["context_time_cost"] for x in trajectories if "context_time_cost" in x.metadata]
                             if context_time_cost:
                                 metrics.update({
-                                  "context_cost_avg":   np.mean(context_time_cost),
-                                  "context_cost_max":   np.max(context_time_cost),
-                                  "context_cost_min":   np.min(context_time_cost),
+                                  "experience_maker/context_cost_avg":   np.mean(context_time_cost),
+                                  "experience_maker/context_cost_max":   np.max(context_time_cost),
+                                  "experience_maker/context_cost_min":   np.min(context_time_cost),
                                 })
 
                             print(f"gen_batch_output.info batch.keys={gen_batch_output.batch.keys()}")
@@ -792,12 +931,22 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                     batch.batch["response_mask"] = compute_response_mask(batch)
 
                     # summary for experience of experience_maker, updating candidate context
+                    ##################
+                    # ANNI modify 0812: update experience pool every k steps
                     summary_task = None
-                    if self.config.experience_maker.enable_summarizer:
-                        summary_task = self.thread_pool.submit(self.em_client.call_summarizer,
+                    if self.config.experience_maker.enable_summarizer and self.config.experience_maker.updated_freq:
+                        if self.global_steps % self.config.experience_maker.updated_freq == 0:
+                            summary_task = self.thread_pool.submit(self.em_client.call_summarizer,
                                                                trajectories=trajectories,
                                                                workspace_id=self.config.experience_maker.workspace_id)
-                        print("async submit summary_task~")
+                            print("async submit summary_task~")
+                    # summary_task = None
+                    # if self.config.experience_maker.enable_summarizer:
+                    #     summary_task = self.thread_pool.submit(self.em_client.call_summarizer,
+                    #                                            trajectories=trajectories,
+                    #                                            workspace_id=self.config.experience_maker.workspace_id)
+                    #     print("async submit summary_task~")
+
                     # balance the number of valid tokens on each dp rank.
                     # Note that this breaks the order of data inside the batch.
                     # Please take care when you implement group based adv computation such as GRPO and rloo
@@ -827,7 +976,7 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                         entropy_loss = agg_loss(loss_mat=entropys, loss_mask=response_masks, loss_agg_mode=loss_agg_mode)
                         old_log_prob_metrics = {"actor/entropy_loss": entropy_loss.detach().item()}
                         metrics.update(old_log_prob_metrics)
-                        # old_log_prob.batch.pop("entropys")
+                        old_log_prob.batch.pop("entropys")
                         batch = batch.union(old_log_prob)
 
                         if "rollout_log_probs" in batch.batch.keys():
@@ -1002,14 +1151,23 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             print(batch.batch.keys())
                             inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=True)
                             outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=True)
+                            experiences_dict = batch.non_tensor_batch["extras"] # ANNI add
                             scores = batch.batch["token_level_scores"].sum(-1).cpu().tolist()
                             self._dump_generations(
                                 inputs=inputs,
                                 outputs=outputs,
+                                experiences=experiences_dict,   # ANNI add
                                 scores=scores,
                                 reward_extra_infos_dict=reward_extra_infos_dict,
                                 dump_path=rollout_data_dir,
                             )
+                            
+                            # save original trajectory
+                            filename = os.path.join(rollout_data_dir, f"traj_{self.global_steps}.jsonl")
+                            with open(filename, "w") as f:
+                                for traj in trajectories:
+                                    f.write(traj.json() + "\n")
+                            
 
                     # validate
                     if self.val_reward_fn is not None and self.config.trainer.test_freq > 0 and (is_last_step or self.global_steps % self.config.trainer.test_freq == 0):
@@ -1048,3 +1206,9 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                     pprint(f"Final validation metrics: {last_val_metrics}")
                     progress_bar.close()
                     return
+            
+            # we expect the train dataset is fully explored at the beginning, no reload needed.
+            # if isinstance(self.train_dataset, FullDataset):
+            #     self.train_dataset.reload()
+
+
