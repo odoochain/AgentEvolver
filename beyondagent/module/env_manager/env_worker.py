@@ -45,7 +45,11 @@ class EnvWorker(object):
             
             # insert custom system prompt
             if system_prompt is not None:
+                # FIXME quick fix for test
+                assert self.task.query is not None
+                system_prompt=system_prompt.replace('[USER_QUESTION]',self.task.query)
                 init_messages.insert(1, {"role": "user", "content": system_prompt})
+                init_messages.pop() # remove the last original query
 
             if self.config.actor_rollout_ref.rollout.context_template == "linear":
                 traj_cmt: Linear_CMT = Linear_CMT(self.config, self.tokenizer)
@@ -62,7 +66,8 @@ class EnvWorker(object):
             traj_cmt.instance_id = self.instance_id
             traj_cmt.task_train_exp_mode = self.task.metadata.get("task_train_exp_mode")
             traj_cmt.metadata["task_train_exp_mode"] = task_train_exp_mode
-            traj_cmt.query = init_messages[-1]["content"]
+            assert self.task.query is not None
+            traj_cmt.query = self.task.query
 
             traj_cmt: Trajectory = agent_flow.execute(
                 context_manager=traj_cmt,

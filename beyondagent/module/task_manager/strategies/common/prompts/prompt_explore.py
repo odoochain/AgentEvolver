@@ -113,6 +113,8 @@ Keep track of:
 
 Your goal is **not** to complete a specific task, but to **gain a deep, structured understanding** of the environment’s capabilities, constraints, and potential real-world applications.  
 Every step should make your understanding more complete.
+
+User may asks questions like `[USER_QUESTION]`. You may explore related information, but **do not** answer the question. Now do your exploration!
 """
 
 

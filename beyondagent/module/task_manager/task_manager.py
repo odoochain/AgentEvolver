@@ -33,7 +33,6 @@ from beyondagent.module.task_manager.adapter import OnflyRlDataset, to_rl_datase
 from beyondagent.module.task_manager.data_mixture import MixtureStrategy, OriginalOnlyStrategy
 from beyondagent.module.task_manager.filters.llm_filter import LlmFilter
 from beyondagent.module.task_manager.strategies import TaskExploreStrategy
-from beyondagent.module.task_manager.explorer import EnvWorkerWithPrompt
 from beyondagent.module.task_manager.filters.filters import NaiveTaskPostFilter, TaskPostFilter
 
 from beyondagent.module.task_manager.base import LlmClient, TaskObjectiveRetrieval

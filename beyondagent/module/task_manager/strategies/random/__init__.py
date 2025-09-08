@@ -47,7 +47,6 @@ class LlmRandomSamplingExploreStrategy(TaskExploreStrategy):
         
     
     def explore(self, task: Task, data_id: str, rollout_id: str) -> list[Trajectory]:
-        task.query="Now do your exploration!"
         env_worker = EnvWorker(
             task=task,
             config=self._config, # FIXME 不是，你既然一定需要这3个东西就不要设置成 = None 啊 
@@ -69,7 +68,11 @@ class LlmRandomSamplingExploreStrategy(TaskExploreStrategy):
         )
         agent_flow.max_steps = self._max_explore_step  # this is ugly
         agent_flow.max_model_len=102400 # TODO max len
-
+        
+        
+        if os.environ.get("DEBUG_ARG","").find("NO_QUERY")!=-1:
+            # 当 query 有值时，会覆盖掉 init message 中的原始 query
+            task.query="Start your exploration!"
         traj = env_worker.execute(
             data_id=data_id,
             rollout_id=rollout_id,
@@ -89,6 +92,8 @@ class LlmRandomSamplingExploreStrategy(TaskExploreStrategy):
     def summarize(self, task: Task, trajectory: Trajectory) -> list[TaskObjective]:
         llm_fn = self._get_llm_chat_fn(self.llm_client_summarize)
         old_objectives = self._old_retrival.retrieve_objectives(task)
+        # mask information
+        trajectory.steps[2]['content'] = "[MASKED]"
         system_prompt, user_prompt = get_task_summarize_prompt(
             [trajectory], old_objectives, appworld.user_profile # FIXME debug profile
         )
