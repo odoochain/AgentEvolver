@@ -65,6 +65,12 @@ There are some critic details you should check:
 
 If agent does not consider these details, it may be wrong.
 
+**Critic Details**
+There are some critic details you should check:
+- Some APIs are paginated, which is documented in the API doc. Agent must call the API multiple times to get all the data.
+
+If agent does not consider these details, it may be wrong.
+
 **Step 4 — Additional Deductions (respect the above ranges)**
 - **Code Execution Errors:** Deduct for crashes, runtime errors, failed tool calls, or obvious bugs.  
 - **Efficiency & Conciseness vs. Reference:** If the trajectory is significantly more roundabout, redundant, or cluttered than the reference approach, deduct accordingly—even if correct. Unnecessary/irrelevant steps count here.
