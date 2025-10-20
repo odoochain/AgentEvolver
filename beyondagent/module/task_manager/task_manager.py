@@ -375,14 +375,17 @@ class FullDataset(Dataset):
         
         # prepare the synthetic dataset if needed
         if self._mixture_strategy.need_synthetic:
+            logger.info("preparing synthetic tasks")
             if self._cache_path is not None and os.path.exists(self._cache_path):
-                logger.info(f"loading synthetic objectives from file {self._cache_path}")
+                logger.info(f"loading synthetic tasks from file {self._cache_path}")
                 self.load_from_file() # load synthetic data
             else:
                 self.reload_new_task() # generate synthetic data
                 if self._cache_path is not None:
-                    logger.debug("saving synthetic objectives to cache file")
+                    logger.debug("saving synthetic tasks to cache file")
                     self.save_to_file()
+        else:
+            logger.info(f"the mixture strategy need no synthetic data ({self._mixture_strategy}), skipping synthetic data...")
         
         # build hybrid dataset
         self._rebuild_dataset()
