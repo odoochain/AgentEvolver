@@ -56,7 +56,7 @@ class EnvWorker(object):
         Returns:
             Trajectory: The generated trajectory from the task execution.
         """
-        trajectory: Trajectory = Trajectory(data_id=data_id, rollout_id=rollout_id, steps=[], query="")  # ⭐ Initialize the trajectory object
+
         try:
             init_response = self.env.create_instance(env_type=self.env_type,
                                                     task_id=self.task_id,

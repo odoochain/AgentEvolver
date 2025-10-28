@@ -20,22 +20,32 @@ class Trajectory(object):
     data_id: str = ""
     rollout_id: str = ""
 
-    steps: List[dict] = []
+    steps: List[dict] | None = None
     query: str = ""
 
     is_terminated: bool = False
     reward: Reward | None = None
 
-    metadata: dict = {}
+    metadata: dict | None = None
     
-    def __init__(self,data_id:str="",rollout_id:str="",steps:List[dict]=[],query:str="",is_terminated:bool=False,reward:Reward|None=None,metadata:dict={}):
+    def __init__(self, 
+                 data_id: str="",
+                 rollout_id: str="",
+                 steps: List[dict] | None = None,
+                 query: str="",
+                 is_terminated: bool = False,
+                 reward: Reward | None = None,
+                 metadata: dict | None = None):
+
         self.data_id = data_id
         self.rollout_id = rollout_id
-        self.steps = steps
+        if steps is not None:
+            self.steps = steps  # when init in cmt: skip this because steps is a function in cmt
         self.query = query
         self.is_terminated = is_terminated
         self.reward = reward
-        self.metadata = metadata
+        self.metadata = metadata if metadata is not None else {}
+    
 
     @property
     def success(self) -> bool:

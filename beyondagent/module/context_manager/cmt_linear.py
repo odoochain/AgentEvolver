@@ -38,6 +38,7 @@ class Linear_CMT(Trajectory, ContextManagerBase):
             config: Configuration object containing environment and model settings.
             tokenizer: Tokenizer instance for processing text.
         """
+        super().__init__()
         self.config = config
         self.tokenizer = tokenizer
         self.full_context: List[ExtendedMessage] = []  # ⭐ Initialize the list to store all messages in the conversation

@@ -1086,6 +1086,11 @@ class BeyondAgentRayPPOTrainer(RayPPOTrainer):
                             print("=" * 10 + "end fit rollout" + "=" * 10)
 
                             gen_batch_output = self.env_manager.to_dataproto(trajectories)
+                            ##########
+                            # ANNI1027
+                            exp_mask_ratio = gen_batch_output.batch["exp_mask"].float().mean()
+                            metrics.update({"exp_mask_ratio": exp_mask_ratio.detach().item()})
+                            ##########
                             context_time_cost = [x.metadata["context_time_cost"] for x in trajectories if "context_time_cost" in x.metadata]
                             if context_time_cost:
                                 metrics.update({

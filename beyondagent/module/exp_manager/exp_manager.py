@@ -103,12 +103,12 @@ class ExperienceManager(object):
         is_validate = mode == "validate"
         rollout_n = self.rollout_config.val_kwargs.n if is_validate else self.rollout_config.n
         exp_mode = self.val_rollout_expmode if is_validate else self.train_rollout_expmode
-        add_exp_choices = {
-            "woexp": [False] * rollout_n,
-            "mixed": sorted([i < round(rollout_n*self.rollout_expratio) for i in range(rollout_n)], key=lambda _: random.random()),
-            "all": [True] * rollout_n
-        }[exp_mode]
         for task_exp_config in exp_configs:
+            add_exp_choices = {
+                "woexp": [False] * rollout_n,
+                "mixed": sorted([i < round(rollout_n*self.rollout_expratio) for i in range(rollout_n)], key=lambda _: random.random()),
+                "all": [True] * rollout_n
+            }[exp_mode]
             task_exp_config.add_exp = add_exp_choices
         
         return exp_configs
@@ -229,7 +229,7 @@ class ExperienceWorker(object):
         formatted_experience = self.experience_template.format(history_experience)
         new_content = formatted_experience + trajectory.steps[-1]["content"]
         trajectory.steps[-1]["content"] = new_content
-        traj_exp_config.experience_list += [formatted_experience]
+        traj_exp_config.experience_list = traj_exp_config.experience_list + [formatted_experience]
 
         return trajectory.steps, traj_exp_config
 
