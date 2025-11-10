@@ -61,7 +61,7 @@ AgentEvolver adopts a service-oriented dataflow architecture, seamlessly integra
 ## 🚀 Quick Start
 ### Step 1. Basic Dependency Installation
 
-Make sure you have cuda toolkit installed.
+Make sure you have **conda** and **cuda toolkit** installed.
 
 Then, set up the training environment by running the script
 
