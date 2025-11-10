@@ -1,3 +1,9 @@
+# ---- Start Environment Service ----
+# conda activate appworld
+# bash env_service/launch_script/appworld.sh
+
+
+# ---- Start Training ----
 PROJECT_DIR="$(pwd)"
 CONFIG_PATH="$PROJECT_DIR/config"
 env_url=http://localhost:8080
@@ -9,29 +15,8 @@ python3 -m beyondagent.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='beyond_agent_dataflow' \
     env_service.env_url=$env_url \
-    exp_manager.val_rollout_mode="woexp" \
-    exp_manager.train_rollout_mode="woexp" \
-    exp_manager.rollout_ratio=0.0 \
-    exp_manager.train_sample_mode="alldiscard" \
-    exp_manager.train_sample_keepratio=0.0 \
-    exp_manager.init_exp_before_training=False \
-    exp_manager.init_exp_only=False \
-    exp_manager.reme.enable_summarizer=False \
-    exp_manager.reme.enable_context_generator=False \
-    exp_manager.reme.updated_freq=0 \
     actor_rollout_ref.actor.off_cliprange_high=0.6 \
     attribution_driven_credit_assignment.enable=false \
-    attribution_driven_credit_assignment.adca_grpo.enable_adca_metric=true \
-    attribution_driven_credit_assignment.adca_grpo.prm_scheme='decouple' \
-    attribution_driven_credit_assignment.llm_evaluation_log_dir="experiments/tech_synthetic/${experiment_name}/llm_evaluation_logs" \
-    attribution_driven_credit_assignment.adca_grpo.alpha=0.2 \
-    attribution_driven_credit_assignment.adca_grpo.skip_type='none' \
-    attribution_driven_credit_assignment.adca_grpo.equal_trajectory_weight=true \
-    attribution_driven_credit_assignment.evaluation_type='api' \
-    attribution_driven_credit_assignment.consistent_scale=1.0 \
-    attribution_driven_credit_assignment.pos_unconsistent_scale=0.2 \
-    attribution_driven_credit_assignment.neg_unconsistent_scale=0.2 \
-    attribution_driven_credit_assignment.model='qwen-plus' \
     algorithm.adv_estimator=grpo \
     data.train_batch_size=32 \
     data.max_prompt_length=4000 \

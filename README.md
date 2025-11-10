@@ -136,8 +136,6 @@ Refer to the  **[QuickStart](docs/tutorial/quick_start.md)** for detailed usage 
 
 ### 📄 Documentation
 
-Comprehensive technical documentation for each core component: 
-
 For detailed usage and customization, please refer to the following guidelines:
 
 - **[Environment Service](docs/guidelines/env_service.md)** - Set up and manage environment instances, integrate custom environments

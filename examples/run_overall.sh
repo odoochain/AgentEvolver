@@ -1,3 +1,27 @@
+# ---- Start Environment Service ----
+# conda activate appworld
+# bash env_service/launch_script/appworld.sh
+
+
+# ---- Start ReMe Service ----
+# conda activate reme
+# cd external/reme
+# reme \
+#   config=default \
+#   backend=http \
+#   thread_pool_max_workers=256 \
+#   http.host="127.0.0.1" \
+#   http.port=8001 \
+#   http.limit_concurrency=256 \
+#   llm.default.model_name=qwen-max-2025-01-25 \
+#   embedding_model.default.model_name=text-embedding-v4 \
+#   vector_store.default.backend=local \
+#   op.rerank_memory_op.params.enable_llm_rerank=false \
+#   flow.summary_task_memory.flow_content="trajectory_preprocess_op >> (success_extraction_op|failure_extraction_op|comparative_extraction_op) >> memory_validation_op >> memory_deduplication_op >> update_vector_store_op"
+
+
+# ---- Start Training ----
+
 PROJECT_DIR="$(pwd)"
 CONFIG_PATH="$PROJECT_DIR/config"
 env_url=http://localhost:8080
