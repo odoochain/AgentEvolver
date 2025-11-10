@@ -118,7 +118,7 @@ Using AgentEvoler launcher to start environment, log dashboard and training proc
 ```bash
 conda activate agentevolver
 
-# option 1: minimal example without ReMe
+# option 1: minimal example without ReMe (using built-in datasets within environments)
 python launcher.py --conf examples/basic.yaml --with-appworld
 
 # option 2: full example with ReMe (questioning + navigating + attributing)
