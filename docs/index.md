@@ -1,49 +1,10 @@
 title: Welcome to AgentEvolver!
-<!-- summary: Metadata configuration # subtitle -->
-
-<!-- **AgentEvolver** is an end-to-end, self-evolving training framework that empowers agents to autonomously
-improve their capabilities, aiming for efficient, cost-effective, and continuous capability evolution.
-
-### ✨ Key Features
-
-- **Self-Evolving Mechanisms**  
-  ① **Automatic Task Generation** – Curiosity-driven *self-questioning* to probe the environment and autonomously create diverse tasks, eliminating costly manual dataset construction.  
-  ② **Experience-guided Exploration** – *Self-navigating* strategies that summarize and reuse cross-task experience to guide higher-quality rollouts and improve exploration efficiency.  
-  ③ **Attribution-based Credit Assignment** – *Self-attributing* along long trajectories to uncover the causal contribution of intermediate steps, enabling fine-grained and efficient policy optimization.  
-
-- **Developer-Oriented Design**  
-  ① **Environment Compatibility** – Standardized interfaces for seamless integration with a wide range of external environments and tool APIs.  
-  ② **Flexible Context Manager** – Built-in utilities for managing multi-turn contexts and complex interaction logic, supporting diverse deployment scenarios.  
-  ③ **Modular & Extensible Architecture** – Decoupled components allow easy customization, secondary development, and future algorithm upgrades.   -->
-
-<p align="center">
- <img src="img/logo.png" alt="AgentEvolver Logo" width="70%">
-</p>
-<h2 align="center">AgentEvolver: Towards Efficient Self-Evolving Agent System</h2>
-
-<!-- --- -->
-
-<p align="center">
-  <!-- <a href="https://arxiv.org/abs/0000"><img src="https://img.shields.io/badge/cs.MA-0000-B31C1C?logo=arxiv&logoColor=B31C1C" alt="arxiv"/></a> -->
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11+-blue" alt="Python Version"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-black" alt="License"></a>
-  <a href="https://github.com/modelscope/AgentEvolver"><img src="https://img.shields.io/github/stars/modelscope/AgentEvolver?style=social" alt="GitHub Stars"></a>
-</p>
 
 
-
-<!-- <p align="center">
-  <strong>AgentEvolver: An Efficient Self-Evolving Agent System</strong><br>
-</p> -->
+## 💡 What is AgentEvolver?
 
 **AgentEvolver** is an end-to-end, self-evolving training framework that unifies self-questioning, self-navigating, and self-attributing into a cohesive system. It empowers agents to autonomously
 improve their capabilities, aiming for efficient, cost-effective, and continuous capability evolution.
-
-
-## 📰 News
-
-- **[2025-11]** 📄 The AgentEvolver Technical Report is now available, detailing the framework’s architecture, methodology, and key findings.
-- **[2025-11]** 🧩 AgentEvolver v1 has been released now!
 
 
 ## ✨ Why AgentEvolver
