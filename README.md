@@ -15,7 +15,6 @@
 </p>
 
 
-
 <!-- <p align="center">
   <strong>AgentEvolver: An Efficient Self-Evolving Agent System</strong><br>
 </p> -->

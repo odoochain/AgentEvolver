@@ -24,7 +24,7 @@ theme:
 
 plugins:
   - search:
-      lang: [zh, en]   # 中文搜索更友好（安装了 jieba）
+      lang: [zh, en]   
 nav:
   - Welcome: index.md
   - Tutorial: 
