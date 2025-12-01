@@ -11,8 +11,8 @@ from agentscope.pipeline import MsgHub, fanout_pipeline
 
 from loguru import logger
 
-from tutorial.example_avalon.engine import AvalonGameEnvironment, AvalonBasicConfig
-from tutorial.example_avalon.utils import (
+from games.avalon.engine import AvalonGameEnvironment, AvalonBasicConfig
+from games.avalon.utils import (
     EchoAgent,
     parse_team_from_response,
     parse_vote_from_response,
@@ -385,9 +385,9 @@ async def avalon_game(
     
     # Import prompts based on language
     if localizer.is_zh:
-        from tutorial.example_avalon.prompt import ChinesePrompts as Prompts
+        from games.avalon.prompt import ChinesePrompts as Prompts
     else:
-        from tutorial.example_avalon.prompt import EnglishPrompts as Prompts
+        from games.avalon.prompt import EnglishPrompts as Prompts
     
     assert len(agents) == config.num_players, f"The Avalon game needs exactly {config.num_players} players."
 

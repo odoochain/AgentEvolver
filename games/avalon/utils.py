@@ -6,7 +6,7 @@ from typing import Any
 from agentscope.agent import AgentBase, ReActAgent
 from agentscope.message import Msg
 
-from tutorial.example_avalon.prompt import EnglishPrompts as Prompts
+from games.avalon.prompt import EnglishPrompts as Prompts
 
 
 def names_to_str(agents: list[str] | list[ReActAgent]) -> str:
