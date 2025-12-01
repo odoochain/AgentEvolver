@@ -5,96 +5,37 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
-# Add astune directory to path for imports
-# test.py is at: astune/tutorial/example_avalon/test.py
-# We need to add astune directory to path
-astune_dir = Path(__file__).parent.parent.parent  # astune/
+# Add BeyondAgent directory to path for imports
+astune_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(astune_dir))
 
-# from agentscope.agent import ReActAgent
-from agentscope.model import OpenAIChatModel, DashScopeChatModel
-from agentscope.formatter import DashScopeMultiAgentFormatter, OpenAIMultiAgentFormatter, DashScopeChatFormatter
-from agentscope.memory import InMemoryMemory
-from agentscope.tool import Toolkit
-
-from games.avalon.agents.thinking_react_agent import ThinkingReActAgent
-from games.avalon.game import avalon_game
-from games.avalon.engine import AvalonBasicConfig
+from games.avalon.game import AvalonGame
 
 
-async def main(language: str = "en"):
+async def main(
+    language: Optional[str] = None,
+    config_path: Optional[str] = None,
+):
     """Main function to run Avalon game.
     
     Args:
         language: Language for prompts. "en" for English, "zh" or "cn" for Chinese.
+        config_path: Path to config YAML file. If None, uses default config.yaml.
     """
-    # Configuration
-    num_players = 5
-    config = AvalonBasicConfig.from_num_players(num_players)
-    
-    # Model configuration - modify these as needed
-    model_name = os.getenv("MODEL_NAME", "qwen-plus")
-    api_key = os.getenv("API_KEY", "")
-    base_url = os.getenv("BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    temperature = float(os.getenv("TEMPERATURE", "0.7"))
-    
-    lang_display = "中文" if language.lower() in ["zh", "cn", "chinese"] else "English"
-    print(f"Initializing Avalon game with {num_players} players...")
-    print(f"Language: {lang_display}")
-    print(f"Model: {model_name}")
-    print()
-    
-    # Create agents
-    agents = []
-    for i in range(num_players):
-        # model = OpenAIChatModel(
-        #     model_name=model_name,
-        #     api_key=api_key,
-        #     client_args={"base_url": base_url},
-        #     temperature=temperature,
-        # )
-        model = DashScopeChatModel(
-                model_name=model_name,
-                api_key=api_key,
-                stream=False,
-                # temperature=temperature,
-            )
-        agent = ThinkingReActAgent(
-            name=f"Player{i}",
-            sys_prompt="",  # System prompt will be set in game.py
-            model=model,
-            formatter=DashScopeChatFormatter(),
-            memory=InMemoryMemory(),
-            toolkit=Toolkit(),
-        )
-        agents.append(agent)
-        print(f"Created {agent.name}")
-    
-    print()
-    print("=" * 60)
-    print("Game Starting...")
-    print("=" * 60)
-    print()
-    
-    # Run game with logging
-    log_dir = os.getenv("LOG_DIR", "logs")
-    os.makedirs(log_dir, exist_ok=True)
+    # Create game from config
+    game = AvalonGame.from_config(
+        config_path=config_path,
+        language=language,
+        use_user_agent=False,  # Simple test script doesn't use UserAgent
+    )
     
     try:
-        good_wins = await avalon_game(agents, config, log_dir=log_dir, language=language)
-        
-        print()
-        print("=" * 60)
-        print("Game Finished!")
-        print("=" * 60)
-        print(f"Result: {'Good wins!' if good_wins else 'Evil wins!'}")
-        print(f"Logs saved to: {log_dir}")
-        print()
+        good_wins = await game.run()
         
         return good_wins
     except Exception as e:
-        print(f"Error during game: {str(e)}")
         import traceback
         traceback.print_exc()
         raise
@@ -102,6 +43,7 @@ async def main(language: str = "en"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Avalon game with API models")
+    parser.add_argument("--config", "-c", type=str, help="Path to config YAML file")
     parser.add_argument(
         "--language",
         "-l",
@@ -112,5 +54,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    asyncio.run(main(language=args.language))
-
+    asyncio.run(
+        main(
+            language=args.language,
+            config_path=args.config,
+        )
+    )

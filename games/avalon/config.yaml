@@ -1,0 +1,34 @@
+# Avalon Game Configuration
+
+# Game settings
+game:
+  num_players: 5
+  language: "zh"  # "en" for English, "zh"/"cn"/"chinese" for Chinese
+  log_dir: "logs"
+
+# User agent settings
+user_agent:
+  enabled: false
+  player_id: 0  # 0-indexed
+
+# Model configuration
+model:
+  name: "qwen-plus"
+  api_key: "sk-224e008372e144e496e06038077f65fc"  # Can be overridden by API_KEY env var
+  stream: true
+  # Optional model parameters
+  # temperature: 0.7
+  # max_tokens: 2000
+
+# Role-specific model configurations (optional)
+# If not specified, will use default model settings
+roles:
+  merlin:
+    # name: "qwen-plus"  # Override model name for Merlin
+    # temperature: 0.5
+    # max_tokens: 2000
+  assassin:
+    # name: "qwen-plus"  # Override model name for Assassin
+    # temperature: 0.8
+    # max_tokens: 2000
+
