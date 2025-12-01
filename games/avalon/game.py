@@ -61,16 +61,8 @@ class AvalonGame:
         self.roles = self.env.get_roles()
         
         # Initialize game log
-        self.game_log_dir = self.game_logger.create_game_log_dir(log_dir)
-        self.game_log: dict[str, Any] = {
-            "initialization": {
-                "roles": [(role_id, role_name, side) for role_id, role_name, side in self.roles],
-                "num_players": config.num_players,
-            },
-            "missions": [],
-            "assassination": None,
-            "game_end": None,
-        }
+        self.game_logger.create_game_log_dir(log_dir)
+        self.game_logger.initialize_game_log(self.roles, config.num_players)
         
         assert len(agents) == config.num_players, f"The Avalon game needs exactly {config.num_players} players."
     
@@ -194,25 +186,9 @@ class AvalonGame:
         """
         # Broadcast game begin message and system prompt
         async with MsgHub(participants=self.agents) as greeting_hub:
-            # Calculate role counts for system prompt
-            max_player_id = self.config.num_players - 1
-            merlin_count = 1 if self.config.merlin else 0
-            servant_count = self.config.num_good - merlin_count - (1 if self.config.percival else 0)
-            assassin_count = 1  # Assassin always exists in standard Avalon
-            minion_count = self.config.num_evil - assassin_count
-            
-            system_prompt_msg = await self.moderator(
-                self.Prompts.system_prompt_template.format(
-                    num_players=self.config.num_players,
-                    max_player_id=max_player_id,
-                    num_good=self.config.num_good,
-                    merlin_count=merlin_count,
-                    servant_count=servant_count,
-                    num_evil=self.config.num_evil,
-                    assassin_count=assassin_count,
-                    minion_count=minion_count,
-                )
-            )
+            # Format system prompt using localizer
+            system_prompt_content = self.localizer.format_system_prompt(self.config, self.Prompts)
+            system_prompt_msg = await self.moderator(system_prompt_content)
             await greeting_hub.broadcast(system_prompt_msg)
             
             new_game_msg = await self.moderator(
@@ -243,25 +219,19 @@ class AvalonGame:
                     await self._handle_assassination_phase(all_players_hub)
 
         # Game over - broadcast final result
-        true_roles_str = ", ".join([
-            f"{self.localizer.format_player_id(i)}: {self.localizer.format_role_name(role_name) if self.localizer.is_zh else role_name}"
-            for i, (_, role_name, _) in enumerate(self.roles)
-        ])
-        
         async with MsgHub(participants=self.agents) as end_hub:
-            result = self.Prompts.to_all_good_wins if self.env.good_victory else self.Prompts.to_all_evil_wins
-            end_msg = await self.moderator(
-                self.Prompts.to_all_game_end.format(result=result, true_roles=true_roles_str)
+            end_message = self.localizer.format_game_end_message(
+                self.env.good_victory,
+                self.roles,
+                self.Prompts
             )
+            end_msg = await self.moderator(end_message)
             await end_hub.broadcast(end_msg)
 
         logger.info(f"Game finished. Good wins: {self.env.good_victory}, Quest results: {self.env.quest_results}")
         
         # Save game log and agent memories
-        if self.game_log_dir:
-            await self.game_logger.save_game_logs(
-                self.agents, self.env, self.game_log, self.game_log_dir, self.roles
-            )
+        await self.game_logger.save_game_logs(self.agents, self.env, self.roles)
         
         return self.env.good_victory
     
@@ -306,6 +276,9 @@ class AvalonGame:
         leader: int,
     ) -> None:
         """Handle Team Selection Phase."""
+        # Add mission to log
+        self.game_logger.add_mission(mission_id, round_id, leader)
+        
         # Broadcast phase and discussion prompt
         phase_msg = await self.moderator(self.Prompts.to_all_team_selection_discuss.format(
             mission_id=mission_id,
@@ -331,7 +304,9 @@ class AvalonGame:
             discussion_msgs.append(msg)
         
         all_players_hub.set_auto_broadcast(False)
-        discussion_msgs = [msg.to_dict() for msg in discussion_msgs]
+        
+        # Add discussion to log
+        self.game_logger.add_discussion_messages([msg.to_dict() for msg in discussion_msgs])
 
         # Leader proposes team
         propose_prompt = await self.moderator(self.Prompts.to_leader_propose_team.format(
@@ -349,15 +324,8 @@ class AvalonGame:
         
         self.env.choose_quest_team(team=frozenset(team), leader=leader)
         
-        # Record in game log
-        if self.game_log_dir:
-            self.game_log["missions"].append({
-                "mission_id": mission_id,
-                "round_id": round_id,
-                "leader": leader,
-                "discussion": discussion_msgs,
-                "team_proposed": list(team),
-            })
+        # Add team proposal to log
+        self.game_logger.add_team_proposal(list(team))
     
     async def _handle_team_voting_phase(
         self,
@@ -387,13 +355,8 @@ class AvalonGame:
         ))
         await all_players_hub.broadcast([result_msg])
         
-        # Record in game log
-        if self.game_log_dir and self.game_log["missions"]:
-            self.game_log["missions"][-1]["team_voting"] = {
-                "team": list(current_team),
-                "votes": votes,
-                "approved": bool(outcome[2]),
-            }
+        # Add team voting to log
+        self.game_logger.add_team_voting(list(current_team), votes, approved)
     
     async def _handle_quest_voting_phase(
         self,
@@ -422,14 +385,13 @@ class AvalonGame:
         ))
         await all_players_hub.broadcast(result_msg)
         
-        # Record in game log
-        if self.game_log_dir and self.game_log["missions"]:
-            self.game_log["missions"][-1]["quest_voting"] = {
-                "team": list(current_team),
-                "votes": votes,
-                "num_fails": int(outcome[3]),
-                "succeeded": bool(outcome[2]),
-            }
+        # Add quest voting to log
+        self.game_logger.add_quest_voting(
+            list(current_team),
+            votes,
+            int(outcome[3]),
+            bool(outcome[2])
+        )
     
     async def _handle_assassination_phase(
         self,
@@ -460,10 +422,5 @@ class AvalonGame:
             result_msg = await self.moderator(f"Assassin {assassin_name} has chosen to assassinate {target_name}. {result_text}")
         await all_players_hub.broadcast(result_msg)
         
-        # Record in game log
-        if self.game_log_dir:
-            self.game_log["assassination"] = {
-                "assassin_id": assassin_id,
-                "target": target,
-                "good_wins": bool(good_wins),
-            }
+        # Add assassination to log
+        self.game_logger.add_assassination(assassin_id, target, bool(good_wins))
