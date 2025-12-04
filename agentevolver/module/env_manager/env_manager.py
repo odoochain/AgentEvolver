@@ -1,5 +1,6 @@
 import copy
 import time
+import json
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Dict, List, Literal, Tuple
 
@@ -20,6 +21,7 @@ from verl.utils.torch_functional import (pad_sequence_to_length)
 from agentevolver.module.agent_flow.agent_flow import AgentFlow
 from agentevolver.module.agent_flow.base_agent_flow import BaseAgentFlow
 from agentevolver.module.env_manager.env_worker import EnvWorker
+from agentevolver.utils.agentscope_utils import dynamic_import
 from agentevolver.module.trainer.ae_async_llm_server_manager import BaAsyncLLMServerManager
 from agentevolver.module.task_manager.rewards import grader_manager
 from agentevolver.schema.task import Task
@@ -47,7 +49,6 @@ def init_logger(experiment_name):
     register_logger(mods=["evaluation", "exception"], non_console_mods=non_console_mods, auto_clean_mods=[], base_log_path=final_log_path, debug=False)
     print('Run `beast_logger_go` and click the url to inspect rollout logs. Continue in 5 seconds')
     time.sleep(2.5)
-
 
 
 class ParallelEnvManager(object):
@@ -276,6 +277,95 @@ class ParallelEnvManager(object):
                     time.sleep(2 ** retry)
                 else:
                     logger.bind(exception=True).exception(f"rollout_env_worker failed after {max_retry} retries: {e.args}")
+                    raise e
+
+    def rollout_agentscope_worker(
+        self,
+        task: Task,
+        traj_exp_config: TrajExpConfig,
+        data_id: str,
+        rollout_id: str,
+        mode: Literal["sample", "validate"],
+        thread_index: int,
+        tmux: dict,
+        stop: list,
+        **kwargs
+    ) -> Trajectory:
+        """
+        Processes a single agentscope workflow task, collects model call data from agents,
+        and returns a Trajectory.
+        
+        This method dynamically imports and runs an agentscope workflow class from config,
+        collects model call history from agents created by the workflow, and converts it
+        into a Trajectory format for training.
+
+        Args:
+            task (Task): The task to be processed.
+            traj_exp_config (TrajExpConfig): Experience Configuration for the trajectory.
+            data_id (str): The ID of the data.
+            rollout_id (str): The ID of the rollout.
+            mode (Literal["sample", "validate"]): The mode of operation, either 'sample' or 'validate'.
+            thread_index (int): The index of the thread.
+            tmux (dict): TMUX configuration for tracking steps and tokens.
+            stop (list): List of stop conditions.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Trajectory: The trajectory generated from the agentscope workflow execution.
+        """
+        max_retry = 4
+        for retry in range(max_retry):
+            try:
+                # Prepare sampling parameters
+                sampling_params = dict(
+                    n=1,
+                    max_completion_tokens=self.rollout_config.response_length,
+                    temperature=self.rollout_config.temperature,
+                    top_p=self.rollout_config.top_p
+                )
+
+                if mode == "validate":
+                    sampling_params["temperature"] = self.rollout_config.val_kwargs.temperature
+                    sampling_params["top_k"] = self.rollout_config.val_kwargs.top_k
+                    sampling_params["top_p"] = self.rollout_config.val_kwargs.top_p
+
+                # Get llm_chat function
+                llm_chat_fn = self.get_llm_chat_fn(sampling_params)
+                
+                # Dynamically import workflow class from config
+                # Expected config path: config.actor_rollout_ref.rollout.agentscope_workflow
+                workflow_import = self.config.actor_rollout_ref.rollout.get("agentscope_workflow", None)
+                if workflow_import is None:
+                    raise ValueError(
+                        "agentscope_workflow not found in config. "
+                        "Please set config.actor_rollout_ref.rollout.agentscope_workflow "
+                        "to a string like 'module.path->WorkflowClass'"
+                    )
+                
+                workflow_cls = dynamic_import(workflow_import)
+                
+                # Instantiate workflow with llm_chat_fn
+                workflow = workflow_cls(
+                    task=task,
+                    llm_chat_fn=llm_chat_fn,
+                    model_name=self.model_name,
+                    **kwargs
+                )
+                
+                # Execute the workflow
+                trajectory: Trajectory = workflow.execute()
+                return trajectory
+
+            except Exception as e:
+                if retry < max_retry - 1:
+                    logger.bind(exception=True).exception(
+                        f"rollout_agentscope_worker error: {e.args}, retrying {retry + 1}/{max_retry}"
+                    )
+                    time.sleep(2 ** retry)
+                else:
+                    logger.bind(exception=True).exception(
+                        f"rollout_agentscope_worker failed after {max_retry} retries: {e.args}"
+                    )
                     raise e
 
     def rollout(self, tasks: List[Task], task_exp_configs: List[TaskExpConfig], mode: Literal["sample", "validate"], epoch: str) -> List[Trajectory]:
