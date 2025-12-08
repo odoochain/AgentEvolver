@@ -14,6 +14,11 @@ from games.avalon.engine import AvalonBasicConfig, AvalonGameEnvironment
 from games.avalon.utils import GameLogger
 
 
+
+# TODO: 传入一个配置，并行玩几局游戏，兼容训练和评测
+# TODO： 如果训练的话，多传入Task，覆盖原先的task_config.yaml，主要包含要训练的模型&角色
+# TODO：评测脚本，起llm-server
+
 class RoleManager:
     """Manages role indexing and identification."""
     
@@ -104,6 +109,9 @@ class AvalonWorkflow(BaseAgentscopeWorkflow):
         from agentscope.memory import InMemoryMemory
         from agentscope.tool import Toolkit
         from games.avalon.agents.thinking_react_agent import ThinkingReActAgent
+        
+
+        # TODO: 检查DashScopeChatModel是否支持本地传入模型
         
         # Use training model if role is training, otherwise create default model
         if self._is_training_role(indexed_role, base_role):
