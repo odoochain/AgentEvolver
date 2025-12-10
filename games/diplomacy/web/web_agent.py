@@ -4,7 +4,6 @@ from agentscope.message import Msg
 from .web_user_input import WebUserInput
 from typing import Any
 from games.diplomacy.web.game_state_manager import GameStateManager
-from games.diplomacy.web.web_user_input import WebUserInput
 from games.diplomacy.utils import Parser
 
 class WebUserAgent(UserAgent):
