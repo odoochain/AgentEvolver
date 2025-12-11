@@ -15,15 +15,7 @@ from agentscope.agent import AgentBase
 
 # 引入重构后的工具函数
 from .utils import Colors, add_legend_to_svg, save_game_logs, order_to_natural_language, load_prompts
-
-@dataclass
-class DiplomacyConfig:
-    """Configuration for Diplomacy game."""
-    max_phases: int = 10
-    map_name: str = 'standard'
-    seed: int = 42
-    num_negotiation_rounds: int = 0
-    debug: bool = False
+from .engine import DiplomacyConfig
 
 class DiplomacyGame:
     """
@@ -36,7 +28,6 @@ class DiplomacyGame:
         agents: List[AgentBase],
         config: DiplomacyConfig,
         log_dir: str | None = None,
-        language: str = "en",
         observe_agent: AgentBase | None = None,
         state_manager: Any = None,
     ):
@@ -54,7 +45,7 @@ class DiplomacyGame:
         self.agents = agents
         self.config = config
         self.log_dir = log_dir
-        self.language = language
+        self.language = config.language
         self.observe_agent = observe_agent
         self.state_manager = state_manager
         
@@ -200,6 +191,7 @@ class DiplomacyGame:
 
         phases_processed = 0
         
+
         while not self.game.is_game_done and phases_processed < self.config.max_phases:
             # Check stop flag
             if self.state_manager and getattr(self.state_manager, 'should_stop', False):
@@ -208,15 +200,15 @@ class DiplomacyGame:
 
             current_phase = self.game.get_current_phase()
             print(f"\n{Colors.BOLD}{Colors.OKCYAN}--- 当前阶段: {current_phase} (第 {phases_processed + 1} 轮) ---{Colors.ENDC}")
-            
+
             await self._broadcast(f"--- Phase: {current_phase} (Round {phases_processed + 1}) ---")
-            
+
             if self.state_manager:
                 self.state_manager.update_game_state(
                     phase=current_phase,
                     round=phases_processed + 1
                 )
-            
+
             phase_log = {
                 "phase": current_phase,
                 "round": phases_processed + 1,
@@ -228,7 +220,7 @@ class DiplomacyGame:
             self.game_log["phases"].append(phase_log)
 
             # Negotiation Phase
-            if current_phase.endswith('M') and self.config.num_negotiation_rounds > 0:
+            if current_phase.endswith('M') and self.config.negotiation_rounds > 0:
                 await self._handle_negotiation_phase(current_phase, phases_processed, phase_log)
 
             # Order Phase
@@ -239,31 +231,36 @@ class DiplomacyGame:
             # Process and Render
             self.game.process()
             phases_processed += 1
-            
+
             sc_counts = {p: len(power.centers) for p, power in self.game.powers.items() if not power.is_eliminated()}
             phase_log["sc_counts"] = sc_counts
             print(f"{Colors.HEADER}各方补给中心: {sc_counts}{Colors.ENDC}")
-            
+
             await self._render_map(f"result_{current_phase}")
             if self.state_manager:
                 self.state_manager.save_history_snapshot(kind="result")
 
+            # 实时写入日志
+            if self.game_log_dir:
+                await save_game_logs(self.agents, self.game, self.game_log, self.game_log_dir)
+
         print(f"\n{Colors.HEADER}=== 游戏结束 ==={Colors.ENDC}")
         print(f"{Colors.HEADER}结果: {self.game.outcome}{Colors.ENDC}")
-        
+
         await self._broadcast(f"Game Over. Outcome: {self.game.outcome}")
-        
+
         if self.state_manager:
             self.state_manager.update_game_state(status="finished")
-        
+
+        # 游戏结束后再写一次日志，确保最终状态
         if self.game_log_dir:
             await save_game_logs(self.agents, self.game, self.game_log, self.game_log_dir)
 
         return self.game
 
     async def _handle_negotiation_phase(self, current_phase, round_num, phase_log):
-        print(f"{Colors.OKBLUE}--- 开始谈判阶段 ({self.config.num_negotiation_rounds} 轮) ---{Colors.ENDC}")
-        for round_idx in range(self.config.num_negotiation_rounds):
+        print(f"{Colors.OKBLUE}--- 开始谈判阶段 ({self.config.negotiation_rounds} 轮) ---{Colors.ENDC}")
+        for round_idx in range(self.config.negotiation_rounds):
             print(f"{Colors.OKBLUE}  第{round_idx + 1}轮谈判{Colors.ENDC}")
             
             round_negotiation_log = {"round_idx": round_idx + 1, "messages": []}
@@ -276,7 +273,7 @@ class DiplomacyGame:
                 negotiation_prompt = (
                     "---PHASE_INSTRUCTIONS---\n"
                     f"Current Phase: {current_phase}\n"
-                    f"Negotiation Round: {round_idx + 1}/{self.config.num_negotiation_rounds}\n"
+                    f"Negotiation Round: {round_idx + 1}/{self.config.negotiation_rounds}\n"
                     f"{phase_instruction}"
                 )
                 
@@ -537,11 +534,7 @@ class DiplomacyGame:
 
 async def diplomacy_game(
     agents: List[AgentBase],
-    max_phases: int = 10,
-    map_name: str = 'standard',
-    seed: int = 42,
-    debug: bool = False,
-    num_negotiation_rounds: int = 3,
+    config: DiplomacyConfig,
     log_dir: str = None,
     state_manager: Any = None,
     observe_agent: AgentBase | None = None,
@@ -550,20 +543,12 @@ async def diplomacy_game(
     Convenience function to run Diplomacy game.
     Wraps the DiplomacyGame class.
     """
-    config = DiplomacyConfig(
-        max_phases=max_phases,
-        map_name=map_name,
-        seed=seed,
-        num_negotiation_rounds=num_negotiation_rounds,
-        debug=debug
-    )
     
     game = DiplomacyGame(
         agents=agents,
         config=config,
         log_dir=log_dir,
         state_manager=state_manager,
-        language="zn" if os.getenv('LANGUAGE') == 'zn' else "en",
         observe_agent=observe_agent
     )
     

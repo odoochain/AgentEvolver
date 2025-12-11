@@ -95,25 +95,37 @@ async def observe_page():
 
 @app.get("/api/options") # added mxj options api
 async def get_options():
-    cfg = DiplomacyBasicConfig.default()
-
-    models = [
-        "qwen-turbo",
-        "qwen-plus",
-        "qwen-max",
-    ]
+    cfg = DiplomacyConfig.default()
+    # 收集所有模型
+    all_models = set()
+    power_models = {}
+    if cfg.models:
+        for power in cfg.power_names:
+            m = cfg.models.get(power) or cfg.models.get("default") or {}
+            model_name = m.get("model_name", "qwen-plus")
+            power_models[power] = model_name
+            all_models.add(model_name)
+        # 也加上所有 models 字典中出现的模型
+        for v in cfg.models.values():
+            if isinstance(v, dict) and v.get("model_name"):
+                all_models.add(v["model_name"])
+    else:
+        for power in cfg.power_names:
+            power_models[power] = "qwen-plus"
+        all_models = {"qwen-turbo", "qwen-plus", "qwen-max"}
 
     return {
         "powers": cfg.power_names,
-        "models": models,
+        "models": sorted(all_models),
+        "power_models": power_models,  # 新增: 每个势力的默认模型
         "defaults": {
             "mode": "observe",
             "human_power": (cfg.power_names[0] if cfg.power_names else "ENGLAND"),
-            "model_name": os.getenv("MODEL_NAME", "qwen-plus"),
-            "max_phases": 20,
-            "map_name": "standard",
-            "negotiation_rounds": 3,
-            "language": "en",
+            "model_name": cfg.models.get("default", {}).get("model_name", os.getenv("MODEL_NAME", "qwen-plus")) if cfg.models else os.getenv("MODEL_NAME", "qwen-plus"),
+            "max_phases": cfg.max_phases,
+            "map_name": cfg.map_name,
+            "negotiation_rounds": cfg.negotiation_rounds,
+            "language": cfg.language,
         },
     }
 
@@ -268,7 +280,7 @@ class StartGameRequest(BaseModel): # added mxj start game api
     negotiation_rounds: int = 3
     language: str = "en"
 
-from games.diplomacy.engine import DiplomacyBasicConfig
+from games.diplomacy.engine import DiplomacyConfig
 from games.diplomacy.web.run_web_game import start_game_thread
 from fastapi import HTTPException
 
@@ -286,9 +298,9 @@ async def start_game(request: StartGameRequest):
     if mode == "participate" and not request.human_power:
         raise HTTPException(status_code=400, detail="human_power is required in participate mode")
 
-    # 1) 组装 DiplomacyBasicConfig（对齐 AvalonBasicConfig 用法）
+    # 1) 组装 DiplomacyConfig
     os.environ["MODEL_NAME"] = request.model_name
-    config = DiplomacyBasicConfig.default()
+    config = DiplomacyConfig.default()
     config.map_name = request.map_name
     config.max_phases = request.max_phases
     config.negotiation_rounds = request.negotiation_rounds

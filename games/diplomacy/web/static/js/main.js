@@ -31,24 +31,34 @@ async function fetchOptionsAndInitConfigForm() {
       hpSel.value = opts.defaults.human_power;
     }
 
-    // 填充 model
-    const modelSel = document.getElementById("config-model");
-    if (modelSel) {
-      modelSel.innerHTML = "";
-      opts.models.forEach(m => {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        modelSel.appendChild(o);
+    // 多势力模型选择
+    const powerModelDiv = document.getElementById("power-model-selects");
+    if (powerModelDiv && opts.powers && opts.models && opts.power_models) {
+      powerModelDiv.innerHTML = "";
+      opts.powers.forEach(power => {
+        const label = document.createElement("label");
+        label.style.marginRight = "8px";
+        label.textContent = power + ": ";
+        const sel = document.createElement("select");
+        sel.name = `model_${power}`;
+        sel.style.marginLeft = "2px";
+        opts.models.forEach(m => {
+          const o = document.createElement("option");
+          o.value = m;
+          o.textContent = m;
+          sel.appendChild(o);
+        });
+        sel.value = opts.power_models[power] || opts.defaults.model_name;
+        label.appendChild(sel);
+        powerModelDiv.appendChild(label);
       });
-      modelSel.value = opts.defaults.model_name;
     }
 
     // 填充 language
     const langSel = document.getElementById("config-language");
     if (langSel) {
       langSel.innerHTML = "";
-      ["en", "cn"].forEach(l => {
+      ["en", "zn"].forEach(l => {
         const o = document.createElement("option");
         o.value = l;
         o.textContent = l;
@@ -83,18 +93,27 @@ if (configForm) {
     e.preventDefault();
     const mode = document.getElementById("config-mode")?.value || "observe";
     const human_power = document.getElementById("config-human-power")?.value || "";
-    const model_name = document.getElementById("config-model")?.value || "qwen-plus";
+    // 收集每个势力的模型
+    const powerModelDiv = document.getElementById("power-model-selects");
+    let power_models = {};
+    if (powerModelDiv) {
+      const selects = powerModelDiv.querySelectorAll("select");
+      selects.forEach(sel => {
+        const power = sel.name.replace(/^model_/, "");
+        power_models[power] = sel.value;
+      });
+    }
     const max_phases = parseInt(document.getElementById("config-max-phases")?.value) || 20;
     const negotiation_rounds = parseInt(document.getElementById("config-negotiation-rounds")?.value) || 3;
     const language = document.getElementById("config-language")?.value || "en";
 
     const payload = {
       mode,
-      model_name,
       human_power: mode === "participate" ? human_power : null,
       max_phases,
       negotiation_rounds,
       language,
+      power_models, // 新增
     };
 
     try {

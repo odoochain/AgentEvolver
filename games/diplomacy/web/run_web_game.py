@@ -19,14 +19,14 @@ from agentscope.tool import Toolkit
 
 from games.diplomacy.agents.thinking_react_agent import ThinkingReActAgent
 from games.diplomacy.game import diplomacy_game
-from games.diplomacy.engine import DiplomacyBasicConfig
+from games.diplomacy.engine import DiplomacyConfig
 from games.diplomacy.web.game_state_manager import GameStateManager
 from games.diplomacy.web.web_agent import WebUserAgent, ObserveAgent
 
 
 async def run_game_in_background(
     state_manager: GameStateManager,
-    config: DiplomacyBasicConfig,
+    config: DiplomacyConfig,
     mode: str = "observe",
 ):
     """
@@ -34,7 +34,7 @@ async def run_game_in_background(
 
     Args:
         state_manager: GameStateManager instance
-        config: DiplomacyBasicConfig
+        config: DiplomacyConfig
         mode: "observe" or "participate"
     """
     agentscope.init()
@@ -42,7 +42,6 @@ async def run_game_in_background(
     # --- model configuration  ---
     model_name = os.getenv("MODEL_NAME", "qwen-plus")
     api_key = os.getenv("API_KEY", "sk-224e008372e144e496e06038077f65fc")  # added mxj
-    os.environ["LANGUAGE"] = config.language
 
     # --- create agents ---
     agents = []
@@ -60,12 +59,24 @@ async def run_game_in_background(
             state_manager.user_agent_id = agent.id
             print(f"Created {agent.name} (WebUserAgent - interactive)")
         else:
-            # 每个 agent 一个 model
-            model = DashScopeChatModel(
-                model_name=model_name,
-                api_key=api_key,
-                stream=False,
-            )
+            # 每个 agent 一个模型配置
+            model_cfg = (config.models or {}).get(power, (config.models or {}).get("default", {}))
+            model_name = model_cfg.get("model_name", model_name)
+            api_key = model_cfg.get("api_key", api_key)
+            # 可根据 model_name 判断用哪个类
+            if "gpt" in model_name:
+                from agentscope.model import OpenAIChatModel
+                model = OpenAIChatModel(
+                    model_name=model_name,
+                    api_key=api_key,
+                    stream=False,
+                )
+            else:
+                model = DashScopeChatModel(
+                    model_name=model_name,
+                    api_key=api_key,
+                    stream=False,
+                )
             agent = ThinkingReActAgent(
                 name=power,
                 sys_prompt="",  # System prompt 最好由 game.py 控制
@@ -77,7 +88,7 @@ async def run_game_in_background(
 
             agent.power_name = power
             agent.set_console_output_enabled(True)
-            print(f"Created {agent.name} (ThinkingReActAgent)")
+            print(f"Created {agent.name} (ThinkingReActAgent, model={model_name})")
 
         agents.append(agent)
 
@@ -100,11 +111,7 @@ async def run_game_in_background(
     try:
         result = await diplomacy_game(
             agents=agents,
-            max_phases=config.max_phases,
-            map_name=config.map_name,
-            num_negotiation_rounds=config.negotiation_rounds,
-            seed=config.seed,
-            debug=False,
+            config=config,
             state_manager=state_manager,
             log_dir=log_dir,
             observe_agent=observe_agent,
@@ -144,7 +151,7 @@ async def run_game_in_background(
 
 def start_game_thread(
     state_manager: GameStateManager,
-    config: DiplomacyBasicConfig,
+    config: DiplomacyConfig,
     mode: str = "observe",
 ):
     """Start game in a separate thread (align Avalon)."""
@@ -223,7 +230,7 @@ def main():
     args = parser.parse_args()
 
     # Build config (Avalon-style)
-    config = DiplomacyBasicConfig.default()
+    config = DiplomacyConfig.default()
     config.map_name = args.map_name
     config.max_phases = args.max_phases
     config.negotiation_rounds = args.negotiation_rounds

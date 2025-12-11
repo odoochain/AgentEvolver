@@ -1,0 +1,31 @@
+# Diplomacy Game Configuration
+
+game:
+  power_names:
+    - AUSTRIA
+    - ENGLAND
+    - FRANCE
+    - GERMANY
+    - ITALY
+    - RUSSIA
+    - TURKEY
+  map_name: standard
+  max_phases: 20
+  negotiation_rounds: 3
+  seed: 42
+  language: zn
+  human_power: null
+
+models:
+  AUSTRIA:
+    model_name: "qwen-plus"
+    # api_key: "sk-xxx"
+  ENGLAND:
+    model_name: "qwen-plus"
+    # api_key: "sk-yyy"
+  FRANCE:
+    model_name: "qwen-plus"
+    # api_key: "sk-zzz"
+  default:
+    model_name: "qwen-plus"
+    # api_key: "sk-default"
