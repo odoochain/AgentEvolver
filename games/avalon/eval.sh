@@ -6,11 +6,11 @@ set -e
 
 # ===== Parameters =====
 START_VLLM="${START_VLLM:-false}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-avalon_allplayers_qwen3-a3b-instruct-2507_nothink_wthinkprompt_eval}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-test}"
 NUM_GAMES="${NUM_GAMES:-1}"
 
 # ===== Configuration =====
-MODEL_PATH="${VLLM_MODEL_PATH:-/mnt/data/zouanni.zan/models/Qwen3-32B}"
+MODEL_PATH="${VLLM_MODEL_PATH:-/mnt/data/yunpeng.zyp/models/Qwen3-14B}"
 HOST="${VLLM_HOST:-localhost}"
 PORT="${VLLM_PORT:-8000}"
 

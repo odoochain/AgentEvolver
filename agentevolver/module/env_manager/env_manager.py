@@ -253,7 +253,9 @@ class ParallelEnvManager(object):
                     n=1,
                     max_completion_tokens=self.rollout_config.response_length,
                     temperature=self.rollout_config.temperature,
-                    top_p=self.rollout_config.top_p)
+                    top_p=self.rollout_config.top_p,
+                    # chat_template_kwargs={"enable_thinking": False}
+                )
 
                 if mode == "validate":
                     sampling_params["temperature"] = self.rollout_config.val_kwargs.temperature

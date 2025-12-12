@@ -36,6 +36,8 @@ class ThinkingReActAgent(ReActAgent):
         print_hint_msg: bool = False,
         max_iters: int = 10,
         thinking_sys_prompt: str | None = None,
+        # thinking_tag_start_end: tuple[str, str] = ("<privacy_think>", "</privacy_think>"),
+        thinking_tag_start_end: tuple[str, str] = ("<think>", "</think>"),
     ) -> None:
         """Initialize a ThinkingReActAgent.
         
@@ -64,15 +66,18 @@ class ThinkingReActAgent(ReActAgent):
         )
         
         # System prompt for thinking phase
+        thinking_tag_start, thinking_tag_end = thinking_tag_start_end
+        self.thinking_tag_start = thinking_tag_start
+        self.thinking_tag_end = thinking_tag_end
         if thinking_sys_prompt is None:
             thinking_sys_prompt = (
                 "Before you respond, think carefully about your response. "
-                "Your thinking process should be wrapped in <think>...</think> tags. "
+                f"Your thinking process should be wrapped in {thinking_tag_start}...</{thinking_tag_end}> tags. "
                 "Then provide your actual response after the thinking section. "
                 "Example format:\n"
-                "<think>\n"
+                f"{thinking_tag_start}\n"
                 "Your private thinking here...\n"
-                "</think>\n"
+                f"{thinking_tag_end}\n"
                 "Your actual response here."
             )
         
@@ -146,7 +151,7 @@ class ThinkingReActAgent(ReActAgent):
             Message containing only public response content (without thinking).
         """
         # Pattern to match <think>...</think> in text
-        pattern = r'<think>(.*?)</think>'
+        pattern = f'{self.thinking_tag_start}(.*?){self.thinking_tag_end}'
         public_blocks = []
         
         # Handle content as list of blocks (typical case for OpenAIChatModel)

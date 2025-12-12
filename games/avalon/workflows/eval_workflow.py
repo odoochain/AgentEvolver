@@ -127,7 +127,7 @@ class EvalAvalonWorkflow:
             name=f"Player{player_id}",
             sys_prompt="",
             model=model,
-            formatter=OpenAIMultiAgentFormatter(),
+            formatter=SecureMultiAgentFormatter(),
             memory=InMemoryMemory(),
             toolkit=Toolkit(),
             # thinking_sys_prompt=""

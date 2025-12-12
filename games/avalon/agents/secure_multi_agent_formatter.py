@@ -242,9 +242,15 @@ class SecureMultiAgentFormatter(OpenAIMultiAgentFormatter):
             )
         else:
             conversation_text = conversation_history_prompt + "<history>\n</history>"
-
+        
+        # Add instruction about agent tag format
+        conversation_text += (
+            "\n\nIMPORTANT: The format <agent:name>...</agent:name> ONLY appears in conversation history."
+            "DO NOT use this format in your response at ANY TIME."
+        )
+        
         # Build content list
-        content_list: list[dict[str, Any]] = [
+        content_list: list[dict[str, Any]] = [  
             {
                 "type": "text",
                 "text": conversation_text,
