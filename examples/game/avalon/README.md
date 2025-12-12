@@ -15,7 +15,7 @@ actor_rollout_ref:
   rollout:
     # Specify the agentscope workflow class to use
     # Format: "module.path->WorkflowClassName"
-    agentscope_workflow: "games.avalon.workflow->AvalonWorkflow"
+    agentscope_workflow: "games.games.avalon.workflow->AvalonWorkflow"
 ```
 
 ## Workflow Base Class

@@ -19,8 +19,8 @@ actor_rollout_ref:
   rollout:
     # Specify the agentscope workflow class to use
     # Format: "module.path->WorkflowClassName"
-    # Example: "games.avalon.workflows.rollout_workflow->AvalonRolloutWorkflow"
-    agentscope_workflow: "games.avalon.workflows.rollout_workflow->AvalonRolloutWorkflow"
+    # Example: "games.games.avalon.workflows.rollout_workflow->AvalonRolloutWorkflow"
+    agentscope_workflow: "games.games.avalon.workflows.rollout_workflow->AvalonRolloutWorkflow"
 
 # self-navigating
 exp_manager:
