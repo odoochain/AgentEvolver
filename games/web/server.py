@@ -291,7 +291,7 @@ async def get_options(game: str | None = None):
                     default_model = web_cfg.get("default_model", {})
                     if isinstance(default_model, dict):
                         default_model = dict(default_model)
-                        # resolve ${API_KEY} from env
+                        # resolve ${OPENAI_API_KEY} from env
                         api_key = default_model.get("api_key", "")
                         if api_key and "${OPENAI_API_KEY}" in api_key:
                             api_key = os.getenv("OPENAI_API_KEY", "")
