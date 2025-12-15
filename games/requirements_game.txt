@@ -26,6 +26,7 @@ openai>=1.0.0
 
 # HTTP client (for API calls)
 httpx>=0.28.0
+requests>=2.32.0
 
 # Async support
 nest-asyncio>=1.6.0

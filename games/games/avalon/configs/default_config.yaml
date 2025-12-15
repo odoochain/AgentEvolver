@@ -21,5 +21,22 @@ game:
   log_dir: games/logs
 
 # Empty roles by default (can be overridden in child configs)
-roles: {}
-
+roles:
+  # merlin:
+  #   model_name: qwen2.5-32b-instruct
+  #   # temperature: 0.7  # Optional, uses default_model configuration
+  #   # max_tokens: 2048  # Optional
+  
+  # servant_0:
+  #   model_name: qwen2.5-32b-instruct
+  
+  # servant_1:
+  #   url: http://localhost:8000/v1  # VLLM server URL (start with: python games/evaluation/start_vllm.py --model-path /path/to/model)
+  #   model_name: local_model  # Model name served by VLLM (must match --model-name in start_vllm.py)
+  
+  # minion:
+  #   model_name: qwen-max
+    
+  # assassin:
+  #   url: http://localhost:8000/v1
+  #   model_name: local_model

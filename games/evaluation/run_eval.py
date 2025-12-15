@@ -5,13 +5,27 @@
 This script provides a unified entry point for evaluating different games.
 It handles game selection, config loading, and result aggregation.
 
-Usage:
+Basic Usage:
     python games/evaluation/run_eval.py \
         --game avalon \
         --config games/games/avalon/configs/task_config.yaml \
         --num-games 10 \
         --max-workers 5 \
         --experiment-name "my_experiment"
+
+Using Local VLLM Models:
+    To use local models with VLLM, you need to start the VLLM server separately first:
+    
+    Terminal 1 (start VLLM server):
+        python games/evaluation/start_vllm.py --model-path /path/to/model --port 8000 --model-name local_model
+    
+    Terminal 2 (run evaluation):
+        python games/evaluation/run_eval.py --game avalon --config games/games/avalon/configs/task_config.yaml --num-games 10
+    
+    Make sure your config file has the correct URL and model_name:
+        default_model:
+          url: http://localhost:8000/v1
+          model_name: local_model
 """
 import argparse
 import sys
