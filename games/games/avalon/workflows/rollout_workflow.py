@@ -15,7 +15,7 @@ from agentevolver.schema.trajectory import Trajectory, Reward
 from games.games.avalon.game import AvalonGame
 from games.games.avalon.engine import AvalonBasicConfig, AvalonGameEnvironment
 from games.games.avalon.utils import GameLogger
-from games.games.avalon.workflows.agentscope_cmt import AgentscopeCMT
+from games.agents.agentscope_cmt import AgentscopeCMT
 
 
 
@@ -80,7 +80,7 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
             data_id=data_id, rollout_id=rollout_id,
             **kwargs
         )
-        self.config_dict = task.metadata.get('avalon_config', task.metadata)
+        self.config_dict = task.metadata.get('config', task.metadata)
         self.role_manager: Optional[RoleManager] = None
         self.training_indices: List[int] = []
     

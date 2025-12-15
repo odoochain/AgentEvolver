@@ -15,7 +15,7 @@ HOST="${VLLM_HOST:-localhost}"
 PORT="${VLLM_PORT:-8000}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${CONFIG_FILE:-$SCRIPT_DIR/task_config.yaml}"
+CONFIG_FILE="${CONFIG_FILE:-$SCRIPT_DIR/configs/task_config.yaml}"
 
 # Ensure CONFIG_FILE is an absolute path
 if [[ "$CONFIG_FILE" != /* ]]; then

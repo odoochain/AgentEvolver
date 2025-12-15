@@ -44,8 +44,14 @@ class RoleManager:
 class EvalAvalonWorkflow:
     """Workflow class for Avalon game evaluation."""
     
-    def __init__(self, task: Task):
-        self.config_dict = task.metadata.get('avalon_config', task.metadata)
+    def __init__(self, config_dict: Dict[str, Any]):
+        """Initialize workflow with config dictionary.
+        
+        Args:
+            config_dict: Configuration dictionary containing game settings,
+                model configurations, etc.
+        """
+        self.config_dict = config_dict
         self.role_manager: Optional[RoleManager] = None
     
     def _get_model_config(self, indexed_role: str, base_role: str) -> Dict[str, Any]:
@@ -90,8 +96,8 @@ class EvalAvalonWorkflow:
         from agentscope.formatter import OpenAIMultiAgentFormatter
         from agentscope.token import HuggingFaceTokenCounter
         from agentscope.tool import Toolkit
-        from games.avalon.agents.thinking_react_agent import ThinkingReActAgent
-        from games.avalon.agents.secure_multi_agent_formatter import SecureMultiAgentFormatter  # pyright: ignore[reportMissingImports]
+        from games.agents.thinking_react_agent import ThinkingReActAgent
+        from games.agents.secure_multi_agent_formatter import SecureMultiAgentFormatter
 
         
         model_config = self._get_model_config(indexed_role, base_role)
@@ -158,8 +164,17 @@ class EvalAvalonWorkflow:
             # thinking_sys_prompt=""
         )
     
-    async def _execute_async(self) -> bool:
-        """Execute the game asynchronously."""
+    async def _execute_async(self) -> Dict[str, Any]:
+        """Execute the game asynchronously.
+        
+        Returns:
+            Dictionary containing game results with keys like:
+            - good_victory: bool/int (1 for True, 0 for False)
+            - quest_results: list of quest outcomes
+            - num_quests: int (number of quests completed)
+            - num_quest_successes: int (number of successful quests)
+            - num_quest_failures: int (number of failed quests)
+        """
         if self.config_dict is None:
             raise ValueError("config_dict is None. Please check your configuration file.")
         
@@ -205,9 +220,23 @@ class EvalAvalonWorkflow:
             timestamp=unique_timestamp,
         )
         
-        good_victory = await game.run() or False
-        return good_victory
+        good_victory = await game.run()
+        
+        # Build result dictionary
+        if good_victory is None:
+            # Game was stopped
+            return {
+                "good_victory": None,
+            }
+        
+        return {
+            "good_victory": 1 if good_victory else 0,  # Convert to int for averaging
+        }
     
-    def execute(self) -> Union[Trajectory, List[Trajectory]]:
-        """Execute the Avalon workflow."""
+    def execute(self) -> Dict[str, Any]:
+        """Execute the Avalon workflow.
+        
+        Returns:
+            Dictionary containing game results.
+        """
         return asyncio.run(self._execute_async())

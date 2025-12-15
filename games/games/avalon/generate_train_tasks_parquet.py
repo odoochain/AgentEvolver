@@ -3,11 +3,16 @@
 
 This script directly generates Parquet records without intermediate JSONL step.
 """
-import yaml
 import argparse
 import uuid
 from pathlib import Path
 import pandas as pd
+
+import sys
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from games.utils import load_config
 
 
 def generate_train_tasks_parquet(
@@ -26,9 +31,8 @@ def generate_train_tasks_parquet(
         env_type: Environment type for tasks
         task_id_prefix: Prefix for task IDs
     """
-    # Load config
-    with open(config_path, 'r', encoding='utf-8') as f:
-        base_config = yaml.safe_load(f)
+    # Load config (supports inheritance)
+    base_config = load_config(config_path)
     
     # Create avalon_config with assassin trainable
     avalon_config = {
@@ -52,7 +56,7 @@ def generate_train_tasks_parquet(
                 "new_query": None,
                 "evaluator": "env",
                 "ground_truth": None,
-                "metadata": {"avalon_config": avalon_config},
+                "metadata": {"config": avalon_config}, # TODO: check if this is correct
             },
         }
         records.append(record)
@@ -67,7 +71,7 @@ def generate_train_tasks_parquet(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate training task Parquet file")
-    parser.add_argument("--config", type=str, default="games/avalon/task_config.yaml", help="Path to task_config.yaml")
+    parser.add_argument("--config", type=str, default="games/avalon/configs/task_config.yaml", help="Path to task_config.yaml")
     parser.add_argument("--output", type=str, default="games/avalon/train_tasks.parquet", help="Path to output Parquet file")
     parser.add_argument("--num_tasks", type=int, default=10, help="Number of tasks to generate")
     parser.add_argument("--env_type", type=str, default="avalon", help="Environment type")
