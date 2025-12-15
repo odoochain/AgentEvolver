@@ -23,9 +23,10 @@ A web-based interface allows you to:
 
 ### Gameplay Animations
 
-![Avalon Demo](../docs/img/games/avalon_demo_extracted.gif)
-
-![Diplomacy Demo](../docs/img/games/diplomacy_demo_extracted.gif)
+<div align="center">
+  <img src="../docs/img/games/avalon_demo_extracted.gif" alt="Avalon Demo" width="45%" />
+  <img src="../docs/img/games/diplomacy_demo_extracted.gif" alt="Diplomacy Demo" width="45%" />
+</div>
 
 ---
 
