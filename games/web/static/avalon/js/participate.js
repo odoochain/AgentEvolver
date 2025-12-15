@@ -203,8 +203,9 @@ function setupTablePlayers(count) {
     const rect = tablePlayers.getBoundingClientRect();
     const cx = rect.width / 2;
     const cy = rect.height / 2;
-    const radiusX = Math.min(210, Math.max(110, rect.width * 0.34));
-    const radiusY = Math.min(120, Math.max(70, rect.height * 0.30));
+    // 增大分布半径，让人物分布更分散
+    const radiusX = Math.min(300, Math.max(160, rect.width * 0.45)); // 从0.34增大到0.45，最大值从210增大到300
+    const radiusY = Math.min(180, Math.max(100, rect.height * 0.40)); // 从0.30增大到0.40，最大值从120增大到180
     const positions = polarPositions(count, radiusX, radiusY);
     
     for (let i = 0; i < count; i++) {

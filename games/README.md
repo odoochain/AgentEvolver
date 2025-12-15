@@ -21,7 +21,11 @@ A web-based interface allows you to:
 - **Avalon** – Hidden roles, logical inference, and deception  
 - **Diplomacy** – Negotiation, alliances, and long-term strategy  
 
-> 📸 *Web interface screenshots and gameplay animations will be added here.*
+### Gameplay Animations
+
+![Avalon Demo](../docs/img/games/avalon_demo_extracted.gif)
+
+![Diplomacy Demo](../docs/img/games/diplomacy_demo_extracted.gif)
 
 ---
 
@@ -57,7 +61,7 @@ Run:
 
 (Optional) Set environment variables:
 
-    export API_KEY=your_api_key
+    export OPENAI_API_KEY=your_api_key
     export MODEL_NAME=your_default_model
 
 ---
