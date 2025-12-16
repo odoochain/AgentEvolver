@@ -1,9 +1,9 @@
 # 🎮 AgentEvolver Game Arena
 
-AgentEvolver Game Arena is a platform for **training, evaluating, and observing AI agents in multi-agent social board games**.  
-It focuses on games with **hidden information, negotiation, deception, and cooperation**, enabling users to study and compare agent behavior in complex social decision-making environments.
+**A unified arena for interaction, evaluation, and training of AI agents in social reasoning games.**
 
-The platform supports **web-based gameplay and observation**, **batch model evaluation**, and **agent training**, making it suitable for researchers, model evaluators, and AI enthusiasts.
+AgentEvolver Game Arena extends **AgentEvolver** into multi-agent social game environments.  
+By focusing on board games with hidden information, negotiation, deception, and cooperation, it provides a controlled setting for developing **social and strategic capabilities**, beyond task execution and tool use.
 
 ---
 
@@ -177,10 +177,9 @@ Example:
 
 ---
 
-## 📚 Additional Documentation
 
-- Web interface details: games/web/README.md  
-- Training and algorithm details: see the main project documentation  
+## 🧠 Build Your Own Agents
+Now, try anything you want. Build your own agents. And one day, let’s see them meet — and compete — in the arena.
 
 ---
 
