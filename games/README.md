@@ -16,24 +16,12 @@ A web-based interface allows you to:
 - **Observer Mode** – Watch AI agents play in real time and inspect their reasoning, communication, and strategic decisions  
 - **Participate Mode** – Join a game as a human player and play alongside or against AI agents to test their interactive capabilities  
 
+**Supported Games**
 
+- **Avalon** – Hidden roles, logical inference, and deception  
+- **Diplomacy** – Negotiation, alliances, and long-term strategy  
 
-We currently support two games, Avalon and Diplomacy, both of which are strategy games involving long-term reasoning.
-
-You first need to select a game, then choose your agents, configure the settings, and finally start the arena.
-
-<table style="border: none; border-collapse: collapse;">
-<tr>
-<td align="center" width="50%" style="border: none; text-align: center;">
-  <img src="../docs/img/games/avalon_demo_extracted.gif" alt="Avalon Demo" width="100%" />
-  <br><strong>Avalon</strong>
-</td>
-<td align="center" width="50%" style="border: none; text-align: center;">
-  <img src="../docs/img/games/diplomacy_demo_extracted.gif" alt="Diplomacy Demo" width="100%" />
-  <br><strong>Diplomacy</strong>
-</td>
-</tr>
-</table>
+> 📸 *Web interface screenshots and gameplay animations will be added here.*
 
 ---
 
@@ -43,6 +31,8 @@ AgentEvolver provides a built-in evaluation framework to **systematically compar
 
 - Run multiple games in parallel for statistically meaningful results  
 - Control game settings and model assignments via configuration files  
+
+> 📊 *Example evaluation summaries and visualized results will be added here.*
 
 ---
 
@@ -61,15 +51,14 @@ AgentEvolver is designed to support **end-to-end training of AI agents in social
 
 ### Install Dependencies
 
-We provide a minimal requirements for non-training usage:
+Run:
 
-    pip install -r games/requirements_game.txt
+    pip install -r requirements.txt
 
-(Optional) Set environment variables for using LLM APIs:
+(Optional) Set environment variables:
 
-    export OPENAI_BASE_URL=your_api_url
-    export OPENAI_API_KEY=your_api_key
-
+    export API_KEY=your_api_key
+    export MODEL_NAME=your_default_model
 
 ---
 
@@ -101,8 +90,6 @@ Example command:
         --config games/games/avalon/configs/task_config.yaml \
         --num-games 10
 
-To use local models, see introduction in games/evaluation/run_eval.py.
-
 After completion, a summary similar to the following will be displayed:
 
     Evaluation Results Summary – AVALON
@@ -113,37 +100,29 @@ After completion, a summary similar to the following will be displayed:
 
 ---
 
-### Train an LLM Agent
+## ⚙️ Configuration
 
-Example command:
+Games and evaluations are controlled via **YAML configuration files**. Configuration structure:
 
-    xxxx 
+- **Game settings** (`game`) – Game-specific parameters (e.g., `num_players`, `language`)
+- **Model configuration** – Priority order:
+  1. **Role-specific settings** (`roles` section) – Each role uses its own configuration if specified
+  2. **Default model settings** (`default_model`) – Used as fallback when a role's configuration is missing
 
-
-## ⚙️ Configuration Overview
-
-All games and evaluations are controlled via **YAML configuration files**, allowing you to adjust behavior without modifying code.
-
-Example structure:
+Example:
 
     game:
       name: avalon
       num_players: 5
       language: en
-
+    
     default_model:
       model_name: qwen-plus
       temperature: 0.7
-
+    
     roles:
       assassin:
-        model_name: custom-model
-
-With configuration files you can:
-
-- Assign different models to different roles  
-- Adjust model parameters and game settings  
-- Reproduce experiments consistently  
+        model_name: custom-model  # assassin uses custom-model, others use qwen-plus  
 
 ---
 
