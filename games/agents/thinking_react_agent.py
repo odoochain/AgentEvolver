@@ -119,13 +119,32 @@ class ThinkingReActAgent(ReActAgent):
         if msg is not None:
             # Extract text content from response
             response_content = msg.get_text_content()
-
+            
+            # Extract tokens from msg metadata if available (from AgentscopeModelWrapper)
+            # The tokens are stored in ChatResponse.metadata by AgentscopeModelWrapper
+            # Agentscope typically copies ChatResponse.metadata to Msg.metadata
+            tokens = None
+            if hasattr(msg, 'metadata') and msg.metadata:
+                # Check if metadata contains tokens (from ChatResponse.metadata)
+                if isinstance(msg.metadata, dict):
+                    # Check for 'tokens' key (token_ids list)
+                    if 'tokens' in msg.metadata:
+                        tokens = msg.metadata['tokens']
+                    # Also check for 'original_tokens' (token objects with token_id attribute)
+                    elif 'original_tokens' in msg.metadata:
+                        original_tokens = msg.metadata['original_tokens']
+                        if original_tokens:
+                            tokens = [t.token_id if hasattr(t, 'token_id') else t for t in original_tokens]
+            
             # Store in history with prompt as messages list (prompt is already in messages format)
             call_record = {
                 "prompt": prompt,  # prompt is already list[dict[str, Any]]
                 "response": response_content,
-                "response_msg": msg.to_dict() if hasattr(msg, 'to_dict') else {}
+                "response_msg": msg.to_dict() if hasattr(msg, 'to_dict') else {},
             }
+            # Add tokens if available (for training consistency)
+            if tokens is not None:
+                call_record["tokens"] = tokens
             self.model_call_history.append(call_record)
         
         if msg is None:

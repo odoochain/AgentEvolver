@@ -149,19 +149,30 @@ class AgentscopeModelWrapper:
             })
         return converted
     
-    def _convert_response_to_agentscope_format(self, response: Dict[str, str]) -> Any:
+    def _convert_response_to_agentscope_format(self, response: Dict[str, Any]) -> Any:
         """
         Convert internal response format to agentscope ChatResponse with block-based format.
         
         Args:
-            response (Dict[str, str]): Response in internal format (role/content).
+            response (Dict[str, Any]): Response in internal format (role/content/tokens).
+                May contain 'tokens' field with token objects (each has token_id attribute).
             
         Returns:
             ChatResponse: Response in agentscope format with TextBlock content.
+                metadata contains 'tokens' if available.
         """
         content = response.get("content", "")
         if not isinstance(content, str):
             content = str(content) if content else ""
+        
+        # Extract tokens if available (for training consistency)
+        tokens = response.get("tokens", None)
+        metadata = None
+        if tokens is not None:
+            # Store tokens in metadata for later use in AgentscopeCMT
+            # Convert token objects to list of token_ids for serialization
+            token_ids = [t.token_id if hasattr(t, 'token_id') else t for t in tokens]
+            metadata = {"tokens": token_ids, "original_tokens": tokens}
         
         # Create TextBlock from content (block-based format)
         text_block = self.TextBlock(type="text", text=content)
@@ -170,7 +181,7 @@ class AgentscopeModelWrapper:
         chat_response = self.ChatResponse(
             content=[text_block],  # Block-based format
             usage=None,  # Usage information not available from llm_chat
-            metadata=None,
+            metadata=metadata,
         )
         return chat_response
     

@@ -109,32 +109,90 @@ class AgentscopeCMT(Linear_CMT):
         )
         full_context.append(ext_msg_response)
         
-        # Compute token arrays for all messages (similar to save_init_input)
-        # This computes incremental tokens based on the full conversation context
+        # Check if we have saved tokens from llm_chat_fn (for training consistency)
+        saved_tokens = call_record.get("tokens", None)
+        use_saved_tokens = saved_tokens is not None and len(saved_tokens) > 0
+        
+        # Compute token arrays for all messages
         if len(full_context) > 0:
             token_ids_acc = []
             messages_so_far = []
             
-            for ext_msg in full_context:
+            for i, ext_msg in enumerate(full_context):
                 # Build messages up to current point
                 messages_so_far.append({
                     "role": ext_msg.role,
                     "content": ext_msg.content_for_future
                 })
                 
-                # Apply chat template and tokenize
-                text_with_chat_template = self.tokenizer.apply_chat_template(
-                    messages_so_far, tokenize=False
-                )
-                tokenizer_output = self.tokenizer(
-                    text_with_chat_template, return_tensors="pt", padding=False
-                )
-                input_ids = tokenizer_output["input_ids"][0].tolist()
-                
-                # Calculate incremental tokens (new tokens added by this message)
-                input_id_increment = input_ids[len(token_ids_acc):]
-                ext_msg.token_arr = input_id_increment
-                token_ids_acc = input_ids
+                # For response message, use saved tokens if available
+                if ext_msg == ext_msg_response and use_saved_tokens:
+                    # Use saved tokens from llm_chat_fn (similar to cmt_linear.py)
+                    from agentevolver.module.context_manager.cmt_base import replace_token_ids
+                    
+                    # Calculate generation prompt tokens (difference between with/without generation prompt)
+                    input_msg_ref = prompt_messages
+                    generation_prompt_token, _ = self.get_inc(
+                        self.tokenizer.apply_chat_template(input_msg_ref, tokenize=False, add_generation_prompt=False),
+                        self.tokenizer.apply_chat_template(input_msg_ref, tokenize=False, add_generation_prompt=True),
+                    )
+                    
+                    # Calculate completion token array (placeholder from text tokenization)
+                    completion_token_arr, _ = self.get_inc(
+                        self.tokenizer.apply_chat_template(input_msg_ref, tokenize=False),
+                        self.tokenizer.apply_chat_template(input_msg_ref + [{"role": "assistant", "content": str(response)}], tokenize=False),
+                    )
+                    
+                    # Replace placeholder tokens with actual tokens from model output
+                    # saved_tokens is already a list of token_ids (from AgentscopeModelWrapper)
+                    if saved_tokens and isinstance(saved_tokens[0], int):
+                        vllm_output_raw_token = saved_tokens
+                    else:
+                        # Fallback: convert token objects to token_ids
+                        vllm_output_raw_token = [t.token_id if hasattr(t, 'token_id') else t for t in saved_tokens] if saved_tokens else []
+                    final_token_arr = replace_token_ids(
+                        place_holder=completion_token_arr,
+                        replace_with=vllm_output_raw_token,
+                        begin=generation_prompt_token,
+                        end=[self.tokenizer.eos_token_id]
+                    )
+                    
+                    # Set token_arr for response message
+                    ext_msg_response.token_arr = final_token_arr
+                    
+                    # Update token_ids_acc for next iteration
+                    # Build full context up to response
+                    text_with_chat_template = self.tokenizer.apply_chat_template(
+                        messages_so_far, tokenize=False
+                    )
+                    tokenizer_output = self.tokenizer(
+                        text_with_chat_template, return_tensors="pt", padding=False
+                    )
+                    # For response, we need to use the actual tokens
+                    # Calculate prompt tokens first
+                    prompt_text = self.tokenizer.apply_chat_template(
+                        prompt_messages, tokenize=False, add_generation_prompt=True
+                    )
+                    prompt_tokenizer_output = self.tokenizer(
+                        prompt_text, return_tensors="pt", padding=False
+                    )
+                    prompt_token_ids = prompt_tokenizer_output["input_ids"][0].tolist()
+                    # Combine prompt tokens with response tokens
+                    token_ids_acc = prompt_token_ids + final_token_arr
+                else:
+                    # For prompt messages, use standard tokenization
+                    text_with_chat_template = self.tokenizer.apply_chat_template(
+                        messages_so_far, tokenize=False
+                    )
+                    tokenizer_output = self.tokenizer(
+                        text_with_chat_template, return_tensors="pt", padding=False
+                    )
+                    input_ids = tokenizer_output["input_ids"][0].tolist()
+                    
+                    # Calculate incremental tokens (new tokens added by this message)
+                    input_id_increment = input_ids[len(token_ids_acc):]
+                    ext_msg.token_arr = input_id_increment
+                    token_ids_acc = input_ids
         
         # Tokenize the steps
         cmt_tokenized = self.tokenize_steps(ext_steps=full_context)
