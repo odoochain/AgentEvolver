@@ -327,6 +327,14 @@ class ParallelEnvManager(object):
         rollout_n = self.rollout_config.val_kwargs.n if mode == "validate" else self.rollout_n
         future_to_params: Dict[Future, Tuple[Task, TrajExpConfig, str, str, str, int, dict, list[bool]]] = {}
 
+        # Make epoch available to agentscope workflows (without changing rollout_env_worker behavior)
+        # This enables workflows to organize logs under logs/{experiment_name}/{epoch}/...
+        for task in tasks:
+            if task.metadata is None:
+                task.metadata = {}
+            # Don't overwrite if caller already provided something custom
+            task.metadata.setdefault("epoch", epoch)
+
         tmux = {
             'step': [0 for _ in range(len(tasks) * rollout_n)],
             'token': [0 for _ in range(len(tasks) * rollout_n)],

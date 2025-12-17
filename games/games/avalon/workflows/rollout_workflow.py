@@ -257,21 +257,26 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
             else:    
                 self.agents[i].set_console_output_enabled(False)
 
-        # Run game
-        # Generate unique timestamp for parallel rollouts by including data_id and rollout_id
-        # This prevents multiple parallel rollouts from overwriting each other's logs
-        base_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_timestamp = f"{base_timestamp}_d{self.data_id}_r{self.rollout_id}"
-        
-        # Get log_dir from game config and experiment_name from self.config
-        log_dir = game_config.get('log_dir', 'logs')
+                # Run game
+        # Build log directory structure:
+        # logs/{experiment_name}/{epoch}/data_id={data_id}rollout_id={rollout_id}/
+        base_log_dir = game_config.get('log_dir', 'logs')
         experiment_name = getattr(self.config.trainer, 'experiment_name', None) if hasattr(self.config, 'trainer') else None
-        
-        # If experiment_name is provided, append it to log_dir
+        epoch = None
+        try:
+            epoch = self.task.metadata.get("epoch") if isinstance(self.task.metadata, dict) else None
+        except Exception:
+            epoch = None
+        epoch = str(epoch) if epoch is not None else "unknown_epoch"
+
+        path_parts = [base_log_dir]
         if experiment_name:
-            # Sanitize experiment_name to avoid filesystem issues
-            experiment_name = str(experiment_name).replace('/', '_').replace('\\', '_')
-            log_dir = os.path.join(log_dir, experiment_name)
+            sanitized_name = str(experiment_name).replace('/', '_').replace('\\', '_')
+            path_parts.append(sanitized_name)
+        path_parts.append(epoch)
+        rollout_dir = f"data_id={self.data_id}rollout_id={self.rollout_id}"
+        path_parts.append(rollout_dir)
+        log_dir = os.path.join(*path_parts)
         
         game = AvalonGame(
             agents=self.agents,
@@ -279,7 +284,6 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
             log_dir=log_dir,
             language=game_config.get('language', 'en'),
             preset_roles=assigned_roles,
-            timestamp=unique_timestamp,
         )
         
         good_victory = await game.run() or False

@@ -9,11 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from collections import defaultdict
 
-from openai import OpenAI
 
-from agentevolver.utils.agentscope_utils import BaseAgentscopeWorkflow
-from agentevolver.schema.task import Task
-from agentevolver.schema.trajectory import Trajectory
 from games.games.avalon.game import AvalonGame
 from games.games.avalon.engine import AvalonBasicConfig, AvalonGameEnvironment
 
@@ -21,7 +17,6 @@ from games.games.avalon.engine import AvalonBasicConfig, AvalonGameEnvironment
 # This ensures all imports happen before any threads are created
 from agentscope.model import OpenAIChatModel
 from agentscope.memory import InMemoryMemory
-from agentscope.formatter import OpenAIMultiAgentFormatter
 from agentscope.token import HuggingFaceTokenCounter
 from agentscope.tool import Toolkit
 from games.agents.thinking_react_agent import ThinkingReActAgent
@@ -200,6 +195,12 @@ class EvalAvalonWorkflow:
             for i in range(len(assigned_roles))
         ]
 
+        for agent in self.agents:
+            if game_id == 0:
+                agent.set_console_output_enabled(True)
+            else:
+                agent.set_console_output_enabled(False)
+
         # Build log directory structure: logs/{experiment_name}/{timestamp}/game_id=0000
         # Get evaluation_timestamp and game_id from config (set by run_eval.py)
         # This ensures all games in the same evaluation run are organized under the same timestamp
@@ -219,10 +220,9 @@ class EvalAvalonWorkflow:
             sanitized_name = str(experiment_name).replace('/', '_').replace('\\', '_')
             path_parts.append(sanitized_name)
         path_parts.append(evaluation_timestamp)
-        timestamp_dir = os.path.join(*path_parts)
-        
-        # Format game timestamp for create_game_log_dir: game_id=0000
         game_timestamp = f"id={game_id:04d}"
+        path_parts.append(game_timestamp)
+        timestamp_dir = os.path.join(*path_parts)
         
         game = AvalonGame(
             agents=self.agents,
@@ -230,7 +230,6 @@ class EvalAvalonWorkflow:
             log_dir=timestamp_dir,
             language=game_config.get('language', 'en'),
             preset_roles=assigned_roles,
-            timestamp=game_timestamp,
         )
         
         good_victory = await game.run()
