@@ -30,6 +30,7 @@ class DiplomacyGame:
         log_dir: str | None = None,
         observe_agent: AgentBase | None = None,
         state_manager: Any = None,
+        game_id: int = 0,
     ):
         """
         Initialize Diplomacy game.
@@ -48,9 +49,10 @@ class DiplomacyGame:
         self.language = config.language
         self.observe_agent = observe_agent
         self.state_manager = state_manager
+        self.game_id = game_id
         
         # Initialize Game
-        print(f"{Colors.HEADER}=== 初始化 Diplomacy (Map: {self.config.map_name}, Seed: {self.config.seed}) ==={Colors.ENDC}")
+        self._debug_print(f"{Colors.HEADER}=== 初始化 Diplomacy (Map: {self.config.map_name}, Seed: {self.config.seed}) ==={Colors.ENDC}")
         self.game = Game(map_name=self.config.map_name, seed=self.config.seed)
         
         # Initialize Logging
@@ -62,13 +64,7 @@ class DiplomacyGame:
             },
             "phases": [],
         }
-        self.game_log_dir = None
-        if self.log_dir:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.game_log_dir = os.path.join(self.log_dir, f"diplomacy_game_{timestamp}")
-            os.makedirs(self.game_log_dir, exist_ok=True)
-            print(f"{Colors.OKBLUE}Game logs will be saved to: {self.game_log_dir}{Colors.ENDC}")
-
+        self.game_log_dir = self.log_dir
         # Load Prompts
         self.prompts = load_prompts(self.language)
         
@@ -86,7 +82,13 @@ class DiplomacyGame:
                 self.agents[i].power_name = power_name 
                 self.power_agent_map[power_name] = self.agents[i]
             else:
-                print(f"  {power_name} 没有分配 Agent (将随机行动)")
+                self._debug_print(f"  {power_name} 没有分配 Agent (将随机行动)")
+    
+    # Helper function for debug printing
+    def _debug_print(self, *args, **kwargs):
+        """Print only when DEBUG environment variable is set to 'true'."""
+        if self.game_id == 0:
+            print(*args, **kwargs)
 
     async def _broadcast(self, content: str, sender: str = "System"):
         """Broadcast message to observe_agent and state_manager."""
@@ -145,10 +147,10 @@ class DiplomacyGame:
             context_str = self._get_context_str(power_name)
             await agent.observe(Msg(name="Moderator", content=context_str, role="assistant"))
 
-    async def _render_map(self, phase_name: str, save: bool = False):
+    async def _render_map(self, phase_name: str, save: bool = True):
         """Render the map and update state manager."""
         try:
-            output_dir = os.path.join(os.path.dirname(__file__), 'images')
+            output_dir = os.path.join(self.game_log_dir, 'images')
             if not os.path.exists(output_dir) and save:
                 os.makedirs(output_dir)
             
@@ -178,7 +180,7 @@ class DiplomacyGame:
             
             return svg_content
         except Exception as e:
-            print(f"{Colors.WARNING}Map rendering failed: {e}{Colors.ENDC}")
+            self._debug_print(f"{Colors.WARNING}Map rendering failed: {e}{Colors.ENDC}")
             return None
 
     async def run(self) -> Game:
@@ -190,19 +192,17 @@ class DiplomacyGame:
         await self._render_map(f"init_{self.game.get_current_phase()}")
         if self.state_manager:
             self.state_manager.save_history_snapshot(kind="init")
-        print(f"{Colors.OKBLUE}[Renderer] 初始地图已渲染并发送至 Web 端。{Colors.ENDC}")
 
         phases_processed = 0
         
-
         while not self.game.is_game_done and phases_processed < self.config.max_phases:
             # Check stop flag
             if self.state_manager and getattr(self.state_manager, 'should_stop', False):
-                print("Game stopped by user request")
+                self._debug_print("Game stopped by user request")
                 break
 
             current_phase = self.game.get_current_phase()
-            print(f"\n{Colors.BOLD}{Colors.OKCYAN}--- 当前阶段: {current_phase} (第 {phases_processed + 1} 轮) ---{Colors.ENDC}")
+            self._debug_print(f"\n{Colors.BOLD}{Colors.OKCYAN}--- 当前阶段: {current_phase} (第 {phases_processed + 1} 轮) ---{Colors.ENDC}")
 
             await self._broadcast(f"--- Phase: {current_phase} (Round {phases_processed + 1}) ---")
 
@@ -237,7 +237,7 @@ class DiplomacyGame:
 
             sc_counts = {p: len(power.centers) for p, power in self.game.powers.items() if not power.is_eliminated()}
             phase_log["sc_counts"] = sc_counts
-            print(f"{Colors.HEADER}各方补给中心: {sc_counts}{Colors.ENDC}")
+            self._debug_print(f"{Colors.HEADER}各方补给中心: {sc_counts}{Colors.ENDC}")
 
             await self._render_map(f"result_{current_phase}")
             if self.state_manager:
@@ -247,8 +247,8 @@ class DiplomacyGame:
             if self.game_log_dir:
                 await save_game_logs(self.agents, self.game, self.game_log, self.game_log_dir)
 
-        print(f"\n{Colors.HEADER}=== 游戏结束 ==={Colors.ENDC}")
-        print(f"{Colors.HEADER}结果: {self.game.outcome}{Colors.ENDC}")
+        self._debug_print(f"\n{Colors.HEADER}=== 游戏结束 ==={Colors.ENDC}")
+        self._debug_print(f"{Colors.HEADER}结果: {self.game.outcome}{Colors.ENDC}")
 
         await self._broadcast(f"Game Over. Outcome: {self.game.outcome}")
 
@@ -262,9 +262,9 @@ class DiplomacyGame:
         return self.game
 
     async def _handle_negotiation_phase(self, current_phase, round_num, phase_log):
-        print(f"{Colors.OKBLUE}--- 开始谈判阶段 ({self.config.negotiation_rounds} 轮) ---{Colors.ENDC}")
+        self._debug_print(f"{Colors.OKBLUE}--- 开始谈判阶段 ({self.config.negotiation_rounds} 轮) ---{Colors.ENDC}")
         for round_idx in range(self.config.negotiation_rounds):
-            print(f"{Colors.OKBLUE}  第{round_idx + 1}轮谈判{Colors.ENDC}")
+            self._debug_print(f"{Colors.OKBLUE}  第{round_idx + 1}轮谈判{Colors.ENDC}")
             
             round_negotiation_log = {"round_idx": round_idx + 1, "messages": []}
             round_messages = [] 
@@ -286,7 +286,7 @@ class DiplomacyGame:
                         response_msg = await agent(msg)
                         break
                     except Exception as e:
-                        print(f"{Colors.FAIL}{power_name} 谈判阶段发生错误 (尝试 {attempt+1}/3): {type(e).__name__}: {e}{Colors.ENDC}")
+                        self._debug_print(f"{Colors.FAIL}{power_name} 谈判阶段发生错误 (尝试 {attempt+1}/3): {type(e).__name__}: {e}{Colors.ENDC}")
                         import traceback
                         traceback.print_exc()
                         if attempt < 2:  # 不是最后一次尝试
@@ -333,7 +333,7 @@ class DiplomacyGame:
                     round_messages.append((sender, recipient, content))
                     round_negotiation_log["messages"].append({"sender": sender, "recipient": recipient, "content": content})
                     log_msg = f"{sender} -> {recipient}: {content}"
-                    print(f"{Colors.OKGREEN}{log_msg}{Colors.ENDC}")
+                    self._debug_print(f"{Colors.OKGREEN}{log_msg}{Colors.ENDC}")
                     
                     # Broadcast to observer
                     await self._broadcast(f"{log_msg}", sender=sender) #给obs看
@@ -368,7 +368,7 @@ class DiplomacyGame:
                     await agent.observe(Msg(name=sender, content=msg_text, role="assistant"))
 
     async def _handle_order_phase(self, current_phase, phase_log):
-        print(f"{Colors.OKBLUE}--- 开始书写命令 ---{Colors.ENDC}")
+        self._debug_print(f"{Colors.OKBLUE}--- 开始书写命令 ---{Colors.ENDC}")
         possible_orders = self.game.get_all_possible_orders()
         
         async def process_agent_orders(power_name, power, agent):
@@ -407,7 +407,7 @@ class DiplomacyGame:
                     response_msg = await agent(msg)
                     break
                 except Exception as e:
-                    print(f"{Colors.FAIL}{power_name} 指令阶段发生错误 (尝试 {attempt+1}/3): {type(e).__name__}: {e}{Colors.ENDC}")
+                    self._debug_print(f"{Colors.FAIL}{power_name} 指令阶段发生错误 (尝试 {attempt+1}/3): {type(e).__name__}: {e}{Colors.ENDC}")
                     import traceback
                     traceback.print_exc()
                     if attempt < 2:  # 不是最后一次尝试
@@ -436,7 +436,7 @@ class DiplomacyGame:
                     if order in response_text: submitted_orders.append(order)
             
             translated_orders = [order_to_natural_language(o) for o in submitted_orders]
-            print(f"{Colors.OKGREEN}{power_name} Orders: {translated_orders}{Colors.ENDC}")
+            self._debug_print(f"{Colors.OKGREEN}{power_name} Orders: {translated_orders}{Colors.ENDC}")
             return power_name, submitted_orders, translated_orders
 
         tasks = []

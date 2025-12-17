@@ -4,16 +4,24 @@ import asyncio
 import os
 import copy
 import uuid
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 from agentevolver.utils.agentscope_utils import BaseAgentscopeWorkflow
 from agentevolver.schema.task import Task
 from agentevolver.schema.trajectory import Trajectory
+from agentscope.model import OpenAIChatModel
+from agentscope.memory import InMemoryMemory
+from agentscope.tool import Toolkit
+from games.agents.thinking_react_agent import ThinkingReActAgent
 
 from games.games.diplomacy.game import DiplomacyGame
 from games.games.diplomacy.engine import DiplomacyConfig
+from agentscope.token import HuggingFaceTokenCounter
+from games.agents.secure_multi_agent_formatter import SecureMultiAgentFormatter
 
+_tokenizer_lock = threading.Lock()
 
 class PowerManager:
     """Manages power indexing and identification."""
@@ -52,7 +60,7 @@ class EvalDiplomacyWorkflow:
         Power-specific config overrides default_model config.
         """
         default_model = self.config_dict.get('default_model', {})
-        models_config = self.config_dict.get('models', {})
+        models_config = self.config_dict.get('roles', {})
 
         # Start with default_model config
         config = copy.deepcopy({**default_model})
@@ -68,11 +76,6 @@ class EvalDiplomacyWorkflow:
 
     def _create_agent(self, player_id: int, power_name: str):
         """Create an agent for a power."""
-        from agentscope.model import OpenAIChatModel
-        from agentscope.formatter import OpenAIMultiAgentFormatter
-        from agentscope.memory import InMemoryMemory
-        from agentscope.tool import Toolkit
-        from games.agents.thinking_react_agent import ThinkingReActAgent
 
         model_config = self._get_model_config(power_name)
 
@@ -98,33 +101,67 @@ class EvalDiplomacyWorkflow:
             k: model_config[k] for k in ['temperature', 'max_tokens']
             if k in model_config
         }
+        # turn off auto-thinking for qwen3
+        generate_kwargs['extra_body'] = {
+            'enable_thinking': False,  # Required for non-streaming calls with DashScope
+        }
         if generate_kwargs:
             model_kwargs['generate_kwargs'] = generate_kwargs
 
         model = OpenAIChatModel(**model_kwargs)
 
+        formatter_config = self.config_dict.get('formatter', {}) if self.config_dict else {}
+        max_model_len = formatter_config.get('max_model_len')
+        response_length = formatter_config.get('response_length')
+        max_tokens = max_model_len - response_length if max_model_len and response_length else None
+        
+        model_name_for_tokenizer = "Qwen/Qwen3-4B"
+
+        with _tokenizer_lock:
+            token_counter = HuggingFaceTokenCounter(
+                pretrained_model_name_or_path=model_name_for_tokenizer,
+                use_mirror=True,
+            )
+
+        formatter = SecureMultiAgentFormatter(
+            token_counter=token_counter,
+            max_tokens=max_tokens,
+            preserved_agent_names=["Moderator"],
+        )
+
         return ThinkingReActAgent(
             name=f"Player{player_id}",
             sys_prompt="",
             model=model,
-            formatter=OpenAIMultiAgentFormatter(),
+            formatter=formatter,
             memory=InMemoryMemory(),
             toolkit=Toolkit(),
         )
 
+
     async def _execute_async(self) -> Dict[str, Any]:
         """Execute the game asynchronously."""
 
-        base_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_timestamp = f"{base_timestamp}_{uuid.uuid4().hex[:8]}"
-
         game_config = self.config_dict.get('game', {})
+        base_log_dir = game_config.get('log_dir', 'logs')
+        evaluation_timestamp = self.config_dict.get('evaluation_timestamp')
+        game_id = self.config_dict.get('game_id', 0)
         experiment_name = self.config_dict.get('experiment_name')
-        log_dir = game_config.get('log_dir', 'logs')
 
+        # Generate timestamp if not provided (backward compatibility)
+        if not evaluation_timestamp:
+            base_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            evaluation_timestamp = f"{base_timestamp}_{uuid.uuid4().hex[:8]}"
+
+        # Sanitize experiment_name and build directory path
+        path_parts = [base_log_dir]
         if experiment_name:
-            experiment_name = str(experiment_name).replace('/', '_').replace('\\', '_')
-            log_dir = os.path.join(log_dir, experiment_name)
+            sanitized_name = str(experiment_name).replace('/', '_').replace('\\', '_')
+            path_parts.append(sanitized_name)
+        path_parts.append(evaluation_timestamp)
+        game_timestamp = f"id={game_id:04d}"
+        path_parts.append(game_timestamp)
+        timestamp_dir = os.path.join(*path_parts)
 
         # Setup game configuration
         power_names = game_config.get('power_names', PowerManager.DEFAULT_POWERS)
@@ -144,27 +181,34 @@ class EvalDiplomacyWorkflow:
             for i in range(len(power_names))
         ]
 
+        for agent in self.agents:
+            if game_id == 0:
+                agent.set_console_output_enabled(True)
+            else:
+                agent.set_console_output_enabled(False)
+
         # Run game
         diplomacy_game = DiplomacyGame(
             agents=self.agents,
             config=config,
-            log_dir=log_dir,
+            log_dir=timestamp_dir,
+            game_id=game_id,
         )
 
         game = await diplomacy_game.run()
 
-        # Return evaluation results
         results = {
             'game_result': game.outcome,
-            'role': [],
+            'roles': [],  # List of scores in power_names order
         }
 
         for power_name, power in game.powers.items():
-            results['role'].append({
+            results['roles'].append({
                 'role_name': power_name,
                 'score': len(power.centers),
             })
 
+        
         return results
 
     def execute(self) -> Union[Trajectory, List[Trajectory], Dict[str, Any]]:

@@ -349,6 +349,15 @@ body.lang-zh .log-entry {
   font-size: 15px; /* 9px + 6px = 15px */
 }
 
+body.lang-zh #user-input {
+  font-family: "Ark Pixel", "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 15px !important;
+}
+
+body.lang-en #user-input {
+  font-family: "Press Start 2P", "Helvetica Neue", Arial, sans-serif !important;
+}
+
 /* 英文模式下，使用英文字体（默认） */
 body.lang-en .chat-content {
   font-family: "Press Start 2P", "Helvetica Neue", Arial, sans-serif;

@@ -144,7 +144,7 @@ async def save_game_logs(
     game_log_path = os.path.join(game_log_dir, "game_log.json")
     with open(game_log_path, 'w', encoding='utf-8') as f:
         json.dump(game_log_data, f, ensure_ascii=False, indent=2)
-    print(f"{Colors.OKBLUE}Game log saved to {game_log_path}{Colors.ENDC}")
+    # print(f"{Colors.OKBLUE}Game log saved to {game_log_path}{Colors.ENDC}")
     
     # Save each agent's memory
     for agent in agents:
@@ -509,7 +509,7 @@ class GameLogger:
         path = os.path.join(self.game_log_dir, "game_log.json")
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(game_log_data, f, ensure_ascii=False, indent=2)
-        logger.info(f"Game log saved to {path}")
+        # logger.info(f"Game log saved to {path}")
     
     async def _save_agent_memories(self, agents: list[AgentBase], roles: list[tuple]) -> None:
         """Save each agent's memory and model call history to separate JSON files."""

@@ -18,7 +18,7 @@ class DiplomacyConfig:
     seed: int = 42
     language: str = "en"
     human_power: Optional[str] = None  # e.g., "ENGLAND" when participate
-    models: Optional[dict] = None  # 每个势力的模型配置
+    roles: Optional[dict] = None  # 每个势力的模型配置
 
     @classmethod
     def default(cls) -> "DiplomacyConfig":
@@ -41,17 +41,17 @@ class DiplomacyConfig:
 
         # 2. 尝试从yaml读取
         yaml_path = os.environ.get("DIPLOMACY_CONFIG_YAML", "games/diplomacy/configs/task_config.yaml")
-        models = None
+        roles = None
         if os.path.exists(yaml_path):
             try:
                 with open(yaml_path, 'r', encoding='utf-8') as f:
                     yml = yaml.safe_load(f) or {}
                 game_cfg = yml.get('game', {}) if isinstance(yml, dict) else {}
-                models = yml.get('models', None)
+                roles = yml.get('roles', None)
                 for k in base:
                     if k in game_cfg and game_cfg[k] is not None:
                         base[k] = game_cfg[k]
             except Exception as e:
                 print(f"[DiplomacyConfig] Failed to load yaml: {e}")
 
-        return cls(**base, models=models)
+        return cls(**base, roles=roles)

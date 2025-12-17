@@ -625,8 +625,9 @@ body.lang-en #user-input {
 
 body.lang-zh #user-input {
   font-family: "Ark Pixel", "Helvetica Neue", Arial, sans-serif !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
 }
+
 
 #user-input:focus {
   outline: none;

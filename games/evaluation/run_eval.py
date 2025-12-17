@@ -83,10 +83,18 @@ def get_avalon_evaluator():
 def get_diplomacy_evaluator():
     """Get Diplomacy game evaluator function."""
     from games.games.diplomacy.workflows.eval_workflow import EvalDiplomacyWorkflow
+
+    # Generate unified timestamp for this evaluation run (shared across all games)
+    evaluation_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     def run_single_game(config_dict: Dict[str, Any], game_id: int) -> Dict[str, Any]:
         """Run a single Diplomacy game."""
         try:
+            # Add game_id and evaluation_timestamp to config for log organization
+            config_dict = config_dict.copy()
+            config_dict['game_id'] = game_id
+            config_dict['evaluation_timestamp'] = evaluation_timestamp
+            
             workflow = EvalDiplomacyWorkflow(config_dict=config_dict)
             result = workflow.execute()
             return result

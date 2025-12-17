@@ -55,6 +55,14 @@ def _page(path: str):
         return FileResponse(str(f))
     return HTMLResponse(f"<h1>Not found: {path}</h1>")
 
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_png = STATIC_DIR / "favicon.png"
+    if favicon_png.exists():
+        return FileResponse(
+            str(favicon_png),
+            media_type="image/png"  # 明确指定 MIME 类型
+        )
 
 @app.get("/avalon/observe")
 async def avalon_observe_page():
@@ -325,13 +333,13 @@ async def get_options(game: str | None = None):
         default_model.setdefault("api_key", os.getenv("OPENAI_API_KEY", ""))
         all_models = set()
         power_models = {}
-        if cfg.models:
+        if cfg.roles:
             for power in cfg.power_names:
-                m = cfg.models.get(power) or cfg.models.get("default") or {}
+                m = cfg.roles.get(power) or cfg.roles.get("default") or {}
                 model_name = m.get("model_name", "qwen-plus")
                 power_models[power] = model_name
                 all_models.add(model_name)
-            for v in cfg.models.values():
+            for v in cfg.roles.values():
                 if isinstance(v, dict) and v.get("model_name"):
                     all_models.add(v["model_name"])
         else:
@@ -347,7 +355,7 @@ async def get_options(game: str | None = None):
             "defaults": {
                 "mode": "observe",
                 "human_power": (cfg.power_names[0] if cfg.power_names else "ENGLAND"),
-                "model_name": (cfg.models.get("default", {}).get("model_name", "qwen-plus") if cfg.models else "qwen-plus"),
+                "model_name": (cfg.roles.get("default", {}).get("model_name", "qwen-plus") if cfg.roles else "qwen-plus"),
                 "max_phases": cfg.max_phases,
                 "map_name": cfg.map_name,
                 "negotiation_rounds": cfg.negotiation_rounds,

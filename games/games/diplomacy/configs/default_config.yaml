@@ -19,15 +19,15 @@ game:
     - RUSSIA
     - TURKEY
   map_name: standard
-  max_phases: 10
-  negotiation_rounds: 1
+  max_phases: 20
+  negotiation_rounds: 3
   seed: 42
   language: zh  # zh: Chinese, en: English
   log_dir: logs
 
 # Power-specific configuration (empty by default, can be overridden in child configs)
 # If a power is configured in models, it overrides default_model.
-models:
+roles:
   # Example: route a power to local vLLM
   # ENGLAND:
   #   url: http://localhost:8000/v1  # VLLM server URL (start with: python games/evaluation/start_vllm.py --model-path /path/to/model)

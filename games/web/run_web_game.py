@@ -12,7 +12,7 @@ from typing import Dict, Any
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import agentscope
-from agentscope.model import DashScopeChatModel
+from agentscope.model import OpenAIChatModel
 from agentscope.memory import InMemoryMemory
 from agentscope.formatter import DashScopeMultiAgentFormatter
 from agentscope.tool import Toolkit
@@ -95,12 +95,15 @@ async def run_avalon(
                 api_key = api_key_raw or os.getenv("OPENAI_API_KEY", "")
                 api_base = merged_cfg.get("api_base", "")
             
-            # 根据 api_base 决定使用哪个模型类
-            if api_base and "openai" in api_base.lower():
-                from agentscope.model import OpenAIChatModel
-                model = OpenAIChatModel(model_name=model_name, api_key=api_key, api_base=api_base, stream=False)
-            else:
-                model = DashScopeChatModel(model_name=model_name, api_key=api_key, stream=False)
+            model_kwargs = {
+                'model_name': model_name,
+                'api_key': api_key,
+                'stream': False,
+            }
+            if api_base:
+                model_kwargs['client_args'] = {'base_url': api_base}
+            model = OpenAIChatModel(**model_kwargs)
+
             agent = ThinkingReActAgent(
                 name=f"Player{i}",
                 sys_prompt="",
@@ -208,6 +211,7 @@ async def run_diplomacy(
             )
             agent.power_name = power
             agent.set_console_output_enabled(True)
+            os.environ["DEBUG"] = "true"
         agents.append(agent)
 
     state_manager.set_mode(mode, config.human_power if mode == "participate" else None, game="diplomacy")
