@@ -140,7 +140,7 @@ class EnvService:
         )
 
         if not ray.is_initialized():
-            ray.init()
+            ray.init(address='local')
         self.env_actors = {}
         self.remote_env = {}
         self.last_access_time = {}

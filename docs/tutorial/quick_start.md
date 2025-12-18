@@ -103,3 +103,62 @@ With the environment and ReMe services running, start the AgentEvolver training.
 conda activate agentevolver
 bash examples/run_overall.sh
 ```
+
+------
+
+## Part C: Multi-Node Training
+
+> Please read Part A and Part B first.
+
+To run AgentEvolver and train agents on multiple nodes, we need some extra setup.
+
+### Step 0. Prepare the Training
+
+Follow the instructions in [Configuration](./configuration.md) to prepare the training environment on **all** nodes.
+
+### Step 1. Start the Ray cluster
+
+In Part A and Part B, we leave the Ray cluster to be started by AgentEvolver. To enable multi-node training, we need to start the Ray cluster manually.
+
+Start Ray on *all* nodes:
+
+```bash
+# all ray node must be in the same conda environment
+conda activate agentevolver
+
+# node 1 as head
+ray start --head
+
+# other nodes as followers
+ray start --address='<head addr>'
+```
+
+### Step 2. Start Env-Service (AppWorld for example)
+
+Start envservice on *one* node:
+
+```bash
+conda activate appworld
+cd env_service
+bash launch_script/appworld.sh
+```
+
+Once you see the successful startup logs, you're good to go. The address of this node will be used in the next step.
+
+If ReMe-Service is needed, start it on *one* node.
+
+### Step 3. Start AgentEvolver
+
+Create a launch script based on [run_basic.sh](https://github.com/modelscope/AgentEvolver/blob/main/examples/run_basic.sh) or [run_overall.sh](https://github.com/modelscope/AgentEvolver/blob/main/examples/run_overall.sh):
+
+- Update `env_url` to the address of the envservice node
+- Adjust other training parameters as needed
+
+Then start training from *one* node:
+
+```bash
+conda activate agentevolver
+bash run_basic.sh
+```
+
+AgentEvolver will automatically use the Ray cluster and spread the training tasks to all nodes.
