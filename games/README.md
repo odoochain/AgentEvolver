@@ -49,6 +49,118 @@ AgentEvolver provides a built-in evaluation framework to **systematically compar
 - Run multiple games in parallel for statistically meaningful results  
 - Control game settings and model assignments via configuration files  
 
+#### ⚔️ AVALON ARENA LEADERBOARD
+
+> **Total Games:** `200` | **Update Time:** `2025-12-18 16:50:15`｜**Game Balance:** `94.7%` (Min: 162, Max: 171)
+
+<table style="width: 100%; border-collapse: collapse; border: 2px solid #333; margin: 20px 0;">
+<thead>
+<tr style="background-color: #f0f0f0; border-bottom: 2px solid #333;">
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>Rank</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>Model Name</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>Overall WR</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>Games</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>🧙‍♂️ Merlin</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>🛡️ Servant</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>🗡️ Assassin</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>😈 Minion</strong></th>
+<th style="padding: 12px; text-align: center; border: 1px solid #ddd;"><strong>📈 Avg</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr style="background-color: #fff9e6;">
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">🥇</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>qwen3-max</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>61.4%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">171</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">28.6%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>48.3%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>90.2%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">72.7%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>60.0%</strong></td>
+</tr>
+<tr>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">🥈</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>qwen3-235b-a22</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>51.5%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">165</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>42.4%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">30.3%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">80.0%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">75.0%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">56.9%</td>
+</tr>
+<tr>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">🥉</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>qwen-plus</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>49.1%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">169</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">37.1%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">27.0%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">81.8%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">68.4%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">53.6%</td>
+</tr>
+<tr>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">4</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">qwen2.5-32b-instruct</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">45.4%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">163</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">27.3%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">25.8%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">64.7%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">79.4%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">49.3%</td>
+</tr>
+<tr>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">5</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">qwen3-30b-a3b</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">39.4%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">170</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">20.0%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">28.4%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">61.1%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>83.3%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">48.2%</td>
+</tr>
+<tr>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">6</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">qwen2.5-14b-instruct</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">25.9%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">162</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">13.9%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">11.4%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">46.2%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">56.7%</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">32.0%</td>
+</tr>
+<tr style="border-top: 2px solid #333;">
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">---</td>
+</tr>
+<tr style="background-color: #f5f5f5; font-weight: bold;">
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;">💡</td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>Average (Avg)</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>45.5%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>166</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>28.0%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>28.0%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>72.0%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>72.0%</strong></td>
+<td style="padding: 10px; text-align: center; border: 1px solid #ddd;"><strong>50.0%</strong></td>
+</tr>
+</tbody>
+</table>
+
+
+
 ---
 
 ### 3. Train AI Agents
