@@ -9,12 +9,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 from agentevolver.utils.agentscope_utils import BaseAgentscopeWorkflow
+from games.utils import cleanup_agent_llm_clients, load_agent_class
 from agentevolver.schema.task import Task
 from agentevolver.schema.trajectory import Trajectory
 from agentscope.model import OpenAIChatModel
 from agentscope.memory import InMemoryMemory
 from agentscope.tool import Toolkit
-from games.agents.thinking_react_agent import ThinkingReActAgent
 
 from games.games.diplomacy.game import DiplomacyGame
 from games.games.diplomacy.engine import DiplomacyConfig
@@ -139,7 +139,11 @@ class EvalDiplomacyWorkflow:
             preserved_agent_names=["Moderator"],
         )
 
-        return ThinkingReActAgent(
+        # Load agent class from role config, default to ThinkingReActAgent
+        agent_class_path = model_config.get('agent_class')
+        AgentClass = load_agent_class(agent_class_path)
+
+        return AgentClass(
             name=f"Player{player_id}",
             sys_prompt="",
             model=model,
@@ -218,6 +222,8 @@ class EvalDiplomacyWorkflow:
                 'score': len(power.centers),
             })
 
+        # Clean up httpx client resources in agent LLM clients
+        await cleanup_agent_llm_clients(self.agents)
         
         return results
 

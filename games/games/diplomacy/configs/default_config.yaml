@@ -7,6 +7,12 @@ default_model:
   stream: false
   trainable: false
   act_by_user: false
+  # agent_class: ThinkingReActAgent  # Optional: specify agent class in default_model or per-role
+  # If not specified, defaults to ThinkingReActAgent
+  # You can specify:
+  #   - Short form: "ThinkingReActAgent" (imports from games.agents)
+  #   - Full path: "games.agents.thinking_react_agent.ThinkingReActAgent"
+  #   - Custom class: "your_module.YourAgentClass"
 
 # Default game configuration
 game:
@@ -28,6 +34,7 @@ game:
 
 # Power-specific configuration (empty by default, can be overridden in child configs)
 # If a power is configured in models, it overrides default_model.
+# agent_class can be specified per-role to use different agent classes for different powers.
 roles:
   # Example: route a power to local vLLM
   # ENGLAND:
@@ -35,9 +42,11 @@ roles:
   #   model_name: local_model  # Model name served by VLLM (must match --model-name in start_vllm.py)
   #   # temperature: 0.7  # Optional, uses default_model configuration
   #   # max_tokens: 2048  # Optional
+  #   # agent_class: YourCustomAgent  # Optional, overrides default_model.agent_class
   
   # FRANCE:
   #   model_name: qwen-max
+  #   # agent_class: ThinkingReActAgent  # Optional, overrides default_model.agent_class
   
   default:
     model_name: qwen-plus

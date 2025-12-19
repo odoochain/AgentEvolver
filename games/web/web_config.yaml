@@ -1,6 +1,14 @@
 # Web 界面专属配置：15个 portrait 角色的模型绑定
 # 当点击 index 页面的角色加入队伍时，会用这里对应的模型配置
 
+# Agent class 配置（可选）
+# 如果未指定，默认使用 ThinkingReActAgent
+# 可以指定：
+#   - 短名称: "ThinkingReActAgent" (从 games.agents 导入)
+#   - 完整路径: "games.agents.thinking_react_agent.ThinkingReActAgent"
+#   - 自定义类: "your_module.YourAgentClass"
+# agent_class: ThinkingReActAgent  # 默认，可以省略
+
 # 默认模型配置（所有角色的 fallback）
 default_model:
   model_name: qwen-plus
@@ -8,6 +16,7 @@ default_model:
   api_key: ${OPENAI_API_KEY} 
   temperature: 0.7
   max_tokens: 2048
+  # agent_class: ThinkingReActAgent  # 也可以在 default_model 中配置
 
 # 每个 portrait 角色的配置（1-15）
 # 如果某个角色未配置，会使用 default_model
@@ -57,15 +66,17 @@ portraits:
   15:
     name: Agent15
 
-# 示例：为某些角色指定不同的模型
+# 示例：为某些角色指定不同的模型和 agent class
 # portraits:
 #   1:
 #     name: 梅林
 #     model_name: qwen-max
+#     agent_class: ThinkingReActAgent  # 可以为特定角色指定不同的 agent class
 #   
 #   2:
 #     name: 刺客
 #     model_name: gpt-4o-mini
 #     api_base: https://api.openai.com/v1
 #     api_key: sk-...
+#     agent_class: YourCustomAgent  # 使用自定义 agent class
 

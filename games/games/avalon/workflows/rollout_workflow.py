@@ -10,6 +10,7 @@ from collections import defaultdict
 from loguru import logger
 
 from agentevolver.utils.agentscope_utils import BaseAgentscopeWorkflow
+from games.utils import cleanup_agent_llm_clients, load_agent_class
 from agentevolver.schema.task import Task
 from agentevolver.schema.trajectory import Trajectory, Reward
 from games.games.avalon.game import AvalonGame
@@ -127,7 +128,6 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
         from agentscope.memory import InMemoryMemory
         from agentscope.tool import Toolkit
         from agentscope.token import HuggingFaceTokenCounter
-        from games.agents.thinking_react_agent import ThinkingReActAgent
         from games.agents.secure_multi_agent_formatter import (
             SecureMultiAgentFormatter,
         )
@@ -201,7 +201,12 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
             preserved_agent_names=preserved_agent_names,
         )
         
-        return ThinkingReActAgent(
+        # Load agent class from role config, default to ThinkingReActAgent
+        model_config = self._get_model_config(indexed_role, base_role)
+        agent_class_path = model_config.get('agent_class')
+        AgentClass = load_agent_class(agent_class_path)
+        
+        return AgentClass(
             name=f"Player{player_id}",
             sys_prompt="",
             model=model,
@@ -299,6 +304,10 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
         )
         
         good_victory = await game.run() or False
+        
+        # Clean up httpx client resources in agent LLM clients
+        await cleanup_agent_llm_clients(self.agents)
+        
         return good_victory, self.training_indices
     
     def execute(self) -> Trajectory:
