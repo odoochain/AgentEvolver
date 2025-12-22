@@ -147,7 +147,7 @@ class AvalonRolloutWorkflow(BaseAgentscopeWorkflow):
         return create_agent_from_config(
             agent_config=agent_config,
             model=model,
-            player_id=player_id,
+            name=f"Player{player_id}",
             actor_rollout_ref=self.config.actor_rollout_ref,
         )
     

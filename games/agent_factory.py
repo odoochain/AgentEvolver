@@ -30,7 +30,7 @@ Example:
     agent = create_agent_from_config(
         agent_config=roles['merlin']['agent_config'],
         model=model_instance,
-        player_id=0  # name will be set to "Player0" automatically
+        name="Player0"
     )
     ```
 """
@@ -312,7 +312,7 @@ def create_formatter_from_config(
 def create_agent_from_config(
     agent_config: Dict[str, Any],
     model: ChatModelBase,
-    player_id: int,
+    name: str,
     actor_rollout_ref: Optional[Any] = None,
 ) -> Any:
     """Create an agent instance from configuration.
@@ -328,13 +328,13 @@ def create_agent_from_config(
             - type: Agent class name or full path (e.g., "ThinkingReActAgent")
             - kwargs: Keyword arguments for agent constructor, which can include:
                 - sys_prompt: System prompt (defaults to "")
-                - Note: 'name' should NOT be in kwargs, it will be set automatically based on player_id
+                - Note: 'name' should NOT be in kwargs, it will be set from the name parameter
                 - memory: Optional memory config dict (see create_memory_from_config)
                 - formatter: Optional formatter config dict (see create_formatter_from_config)
                 - toolkit: Optional toolkit config dict (see create_toolkit_from_config)
                 - Any other agent-specific parameters
         model: Pre-created model instance (required).
-        player_id: Player ID (required) for setting agent name.
+        name: Agent name (required).
         actor_rollout_ref: Optional config object with actor_rollout_ref structure.
             Will be passed to create_formatter_from_config to extract tokenizer_path
             and formatter settings. Can be:
@@ -367,7 +367,7 @@ def create_agent_from_config(
         agent = create_agent_from_config(
             agent_config=agent_config,
             model=model,
-            player_id=0,
+            name="Player0",
             actor_rollout_ref=self.config.actor_rollout_ref
         )
         ```
@@ -393,13 +393,13 @@ def create_agent_from_config(
     # Set model (required)
     agent_kwargs['model'] = model
     
-    # Set name based on player_id (name is controlled by workflow, not config)
-    if player_id is None:
+    # Set name (name is controlled by workflow, not config)
+    if not name:
         raise ValueError(
-            "player_id is required to set agent name. "
-            "Please provide player_id when calling create_agent_from_config."
+            "name is required. "
+            "Please provide name when calling create_agent_from_config."
         )
-    agent_kwargs['name'] = f"Player{player_id}"
+    agent_kwargs['name'] = name
     
     # Set default sys_prompt if not provided
     if 'sys_prompt' not in agent_kwargs:
