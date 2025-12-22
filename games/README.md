@@ -276,14 +276,23 @@ python -m agentevolver.main_ppo \
 
 ## ⚙️ Configuration
 
-Games and evaluations are controlled via **YAML configuration files**. Configuration structure:
+Games and evaluations are controlled via **YAML configuration files**. The configuration uses a unified role-based structure where `model` and `agent` configurations are separated but grouped under each role.
+
+### Configuration Structure
 
 - **Game settings** (`game`) – Game-specific parameters (e.g., `num_players`, `language`)
-- **Role configuration** – Priority order:
-  1. **Role-specific settings** (`roles` section) – Each role uses its own configuration if specified
-  2. **Default role settings** (`default_role`) – Used as fallback when a role's configuration is missing
+- **Default role** (`default_role`) – Default settings for all roles, containing:
+  - `trainable`, `act_by_user` – Role-level flags
+  - `model` – Model configuration (API settings, model name, temperature, etc.)
+  - `agent` – Agent configuration (type, memory, formatter, toolkit, etc.)
+- **Role-specific settings** (`roles`) – Override `default_role` for specific roles. Each role can have:
+  - `trainable`, `act_by_user` – Override role-level flags
+  - `model` – Override or extend model configuration
+  - `agent` – Override or extend agent configuration
 
-Example:
+**Configuration Priority:** Role-specific settings in `roles` section override `default_role` settings. Nested dictionaries (like `model` and `agent`) are merged recursively, so you only need to specify the fields you want to change.
+
+### Example
 
     game:
       name: avalon
@@ -308,7 +317,8 @@ Example:
     roles:
       assassin:
         model:
-          model_name: custom-model  # assassin uses custom-model, others use qwen-plus  
+          model_name: custom-model  # Only overrides model_name, other model settings inherited
+        # agent not specified, uses default_role.agent  
 
 
 
@@ -317,9 +327,11 @@ Example:
 
 The AgentEvolver Game Arena is designed to be extensible and customizable. You can:
 
-- **Develop custom agents** - Implement your own agent logic, strategies, and reasoning capabilities. Reference `games/agents/thinking_react_agent.py` and configure via `agent_config.type` in YAML.
-- **Design memory systems** - Build memory architectures that help agents remember game history, player behaviors, and strategic patterns. Create formatters for message formatting and token management. Configure via `agent_config.kwargs.memory` and `agent_config.kwargs.formatter` in YAML.
+- **Develop custom agents** - Implement your own agent logic, strategies, and reasoning capabilities. Reference `games/agents/thinking_react_agent.py` and configure via `roles.<role_name>.agent.type` in YAML.
+- **Design memory systems** - Build memory architectures that help agents remember game history, player behaviors, and strategic patterns. Create formatters for message formatting and token management. Configure via `roles.<role_name>.agent.kwargs.memory` and `roles.<role_name>.agent.kwargs.formatter` in YAML.
 - **Train models** - Use the provided training pipeline to fine-tune models for specific roles, strategies, or game scenarios.
+
+**Configuration Structure:** Each role configuration has separate `model` and `agent` sub-sections, making it easy to customize both independently. The `default_role` section provides defaults for all roles, which can be overridden per-role in the `roles` section.
 
 See `games/games/avalon/configs/default_config.yaml` and `games/games/diplomacy/configs/default_config.yaml` for detailed configuration examples.
 

@@ -25,6 +25,7 @@ improve their capabilities, aiming for efficient, cost-effective, and continuous
 
 ## 📰 News
 
+- **[2025-12]** 🎮 [AgentEvolver Game Arena](games/README.md) released — a multi-agent social reasoning arena for interaction, evaluation, and training in games like Avalon and Diplomacy.
 - **[2025-11]** 📄 [The AgentEvolver Technical Report is now available](https://arxiv.org/abs/2511.10395), detailing the framework’s architecture, methodology, and key findings.
 - **[2025-11]** 🧩 AgentEvolver v1 has been released now!
 
@@ -125,6 +126,19 @@ python launcher.py --conf examples/basic.yaml --with-appworld
 # option 2: full example with ReMe (questioning + navigating + attributing)
 python launcher.py --conf examples/overall.yaml --with-appworld --with-reme
 ```
+
+## 🎮 AgentEvolver Game Arena
+
+**[AgentEvolver Game Arena](games/README.md)** extends **AgentEvolver** into **multi-agent social game environments**, providing a unified arena for **interaction, evaluation, and training** of AI agents in long-horizon social reasoning tasks.
+
+Key capabilities include:
+- **Web-based interaction** – Observe AI agents' reasoning and communication in real time, or participate as a human player.
+- **Scalable evaluation** – Run large-scale self-play or mixed-model tournaments with configurable settings and leaderboards.
+- **End-to-end training support** – Train LLM agents directly within social game environments using reinforcement learning–based methods (e.g., GRPO).
+
+For detailed documentation, quick start guides, and configuration examples, see the **[Game Arena README](games/README.md)**.
+
+
 
 ## 🧩 Advanced Usage
 
