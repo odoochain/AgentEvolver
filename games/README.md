@@ -170,7 +170,11 @@ AgentEvolver is designed to support **end-to-end training of AI agents in social
 - Training agents directly within game environments  
 - Support for reinforcement learning–based methods (e.g., GRPO)  
 
-<img src="../docs/img/games/training_curve.png" alt="Training Curve" width="80%">
+**Example:** Training curve for the assassin role in Avalon
+
+<img src="../docs/img/games/training_curve.jpg" alt="Training Curve" width="80%">
+
+*The training curve above shows the performance of the **assassin** role in Avalon. The assassin uses **qwen2.5-14B** as the base model, while all other roles use **qwen-plus**. All roles use the default **ThinkingReActAgent**, which follows a think-then-speak pattern.*
 
 ---
 
@@ -261,10 +265,20 @@ The config specifies task details and which roles/models are trainable (set `tra
 
 #### Step 2: Start Training
 
-Run the training script with the generated Parquet file:
+**Option 1: One-click script (Recommended)**
+
+Use the provided training script for quick start:
 
 ```bash
-# Example for Avalon (see examples/game/avalon/run_train.sh for full example)
+# Make sure to update the script with your paths and configuration
+bash examples/game/avalon/run_train.sh
+```
+
+**Option 2: Python command**
+
+Run the training script directly with Python:
+
+```bash
 python -m agentevolver.main_ppo \
     --config-path="examples/game/avalon" \
     --config-name='config' \
@@ -272,6 +286,8 @@ python -m agentevolver.main_ppo \
     data.val_files="./train_avalon_tasks.parquet" \
     # ... other training parameters
 ```
+
+> 💡 **Tip**: The script `examples/game/avalon/run_train.sh` contains a complete training configuration. You can modify it to customize training parameters, model paths, and other settings.
 
 
 
