@@ -298,3 +298,18 @@ We would like to thank the following projects and communities:
 ## 📄 License
 
 Please refer to the main project LICENSE file.
+
+## 📚 Citation
+If you find this work useful, please consider citing:
+
+```bibtex
+@misc{AgentEvolver2025,
+  title         = {AgentEvolver: Towards Efficient Self-Evolving Agent System},
+  author        = {Yunpeng Zhai and Shuchang Tao and Cheng Chen and Anni Zou and Ziqian Chen and Qingxu Fu and Shinji Mai and Li Yu and Jiaji Deng and Zouying Cao and Zhaoyang Liu and Bolin Ding and Jingren Zhou},
+  year          = {2025},
+  eprint        = {2511.10395},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2511.10395}
+}
+```
